@@ -6,7 +6,7 @@
 
 1. https://console.firebase.google.com/ で新規プロジェクト（例: `recipe-buddy`）を作成。
 2. **Authentication** → Sign-in method → **Google** を有効化（サポートメール設定）。
-3. **Authentication** → Settings → 承認済みドメインに Vercel 本番ドメイン（例 `recipe-buddy.vercel.app`）を追加。
+3. **Authentication** → Settings → 承認済みドメインに Vercel 本番ドメインを追加。ドメインは Vercel ダッシュボードのプロジェクト画面「Domains」に表示される `xxxx.vercel.app`（`recipe-buddy.vercel.app` は他人のプロジェクトなので使わない）。
 4. **Firestore Database** を作成（ロケーション `asia-northeast1`、本番モード）。
 5. Firestore → ルール に [firebase/firestore.rules](../firebase/firestore.rules) を貼り、`ALLOWED_EMAILS` の中身を自分のメールに置き換えて公開。
 6. プロジェクトの設定 → 全般 → マイアプリ → Web アプリを追加 → `firebaseConfig` を取得（`VITE_FIREBASE_*` に使う）。
