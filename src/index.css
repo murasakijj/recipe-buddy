@@ -1,0 +1,685 @@
+:root {
+  color-scheme: light;
+  --color-bg: #f7f5f0;
+  --color-surface: #ffffff;
+  --color-text: #24291f;
+  --color-text-muted: #5a6153;
+  --color-border: #d8d4c8;
+  --color-primary: #2f6f4f;
+  --color-primary-dark: #245839;
+  --color-primary-contrast: #ffffff;
+  --color-danger: #a23b2e;
+  --color-danger-contrast: #ffffff;
+  --color-link: #1f5a8f;
+  --color-badge-bg: #eef1e7;
+  --color-badge-ai-bg: #fdeecb;
+  --color-badge-ai-text: #7a5410;
+  --color-warning-bg: #fbe4df;
+  --color-warning-text: #7a2a1c;
+  --color-wakelock-bg: #1f2a22;
+  --color-wakelock-text: #f2f5ee;
+  --radius: 8px;
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    "Hiragino Kaku Gothic ProN",
+    "Yu Gothic",
+    sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#root {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.3;
+}
+
+a {
+  color: var(--color-link);
+}
+
+input,
+select,
+textarea,
+button {
+  font: inherit;
+  color: inherit;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  min-height: 44px;
+}
+
+textarea {
+  min-height: 5.5rem;
+  resize: vertical;
+}
+
+/* --- レイアウト --- */
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.app-title {
+  font-weight: 700;
+  font-size: 1.1rem;
+  text-decoration: none;
+  color: var(--color-primary-dark);
+}
+
+.app-header-user {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.app-user-name {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 8rem;
+}
+
+.app-main {
+  flex: 1;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 1rem;
+  padding-bottom: 3rem;
+}
+
+.placeholder-page {
+  padding: 2rem 1rem;
+  text-align: center;
+}
+
+.login-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+/* --- ボタン --- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  cursor: pointer;
+  text-decoration: none;
+  font-weight: 600;
+  color: var(--color-text);
+  transition:
+    transform 0.05s ease-out,
+    background-color 0.05s ease-out;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn:active:not(:disabled) {
+  transform: scale(0.98);
+  background: var(--color-badge-bg);
+}
+
+.btn-primary {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-contrast);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-primary-dark);
+}
+
+.btn-primary:active:not(:disabled) {
+  background: var(--color-primary-dark);
+}
+
+.btn-danger {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: var(--color-danger-contrast);
+}
+
+.btn-danger:active:not(:disabled) {
+  background: var(--color-danger);
+  filter: brightness(0.85);
+}
+
+/* --- カード・バッジ --- */
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: var(--color-badge-bg);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.badge-ai {
+  background: var(--color-badge-ai-bg);
+  color: var(--color-badge-ai-text);
+}
+
+/* --- ページ共通 --- */
+
+.page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.page-header-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.empty-state {
+  color: var(--color-text-muted);
+  padding: 1.5rem 0;
+}
+
+.notice {
+  background: var(--color-badge-ai-bg);
+  color: var(--color-badge-ai-text);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 1rem;
+}
+
+/* --- レシピ一覧 --- */
+
+.filters {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+.tag-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.tag-chip {
+  min-height: 44px;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: transform 0.05s ease-out;
+}
+
+.tag-chip:active {
+  transform: scale(0.96);
+  background: var(--color-badge-bg);
+}
+
+.tag-chip-active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-contrast);
+  font-weight: 600;
+}
+
+.tag-chip-active:active {
+  background: var(--color-primary-dark);
+}
+
+.recipe-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.recipe-card-link {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+
+.recipe-card-title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.recipe-card-title {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.recipe-card-meta {
+  margin-top: 0.35rem;
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+/* --- レシピ詳細 --- */
+
+.recipe-meta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 0.75rem;
+  margin: 1rem 0;
+}
+
+.recipe-meta dt {
+  color: var(--color-text-muted);
+}
+
+.recipe-meta dd {
+  margin: 0;
+}
+
+.ingredient-list,
+.step-list {
+  padding-left: 1.25rem;
+}
+
+.step-list > li {
+  margin-bottom: 0.6rem;
+}
+
+.technique-link {
+  display: inline-block;
+  background: none;
+  border: none;
+  padding: 0.5rem 0.15rem;
+  margin: -0.5rem 0;
+  min-height: auto;
+  color: var(--color-link);
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+
+.technique-link:active {
+  background: var(--color-badge-bg);
+  border-radius: 4px;
+}
+
+.detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1.5rem;
+}
+
+/* --- フォーム --- */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.form-field > label,
+.form-field > span {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+@media (min-width: 480px) {
+  .form-row {
+    flex-direction: row;
+  }
+  .form-row > .form-field {
+    flex: 1;
+  }
+}
+
+.field-error {
+  color: var(--color-danger);
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.char-counter {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  margin: 0.2rem 0 0;
+  text-align: right;
+}
+
+.row-editor {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.65rem;
+  margin-bottom: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  background: var(--color-surface);
+}
+
+.row-editor-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+/* --- テクニック一覧 --- */
+
+.technique-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.technique-list-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.technique-list-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.technique-ref-count {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  margin: 0.2rem 0 0;
+}
+
+/* --- ダイアログ(共通テクニックモーダル・テクニック選択) --- */
+
+dialog {
+  border: none;
+  border-radius: var(--radius);
+  padding: 0;
+  max-width: min(92vw, 480px);
+  width: 100%;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+}
+
+dialog::backdrop {
+  background: rgba(20, 20, 15, 0.5);
+}
+
+.technique-modal-content,
+.technique-picker-content {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.technique-modal-summary {
+  color: var(--color-text-muted);
+}
+
+.technique-modal-instructions {
+  padding-left: 1.25rem;
+}
+
+.technique-modal-cautions {
+  background: var(--color-badge-ai-bg);
+  color: var(--color-badge-ai-text);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.8rem;
+}
+
+.technique-picker-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.notice-warning {
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+}
+
+.notice-warning h2 {
+  margin-top: 0;
+}
+
+/* --- アレンジ入力・結果 --- */
+
+.arrange-target-title {
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.arrange-summary {
+  margin-bottom: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.8rem;
+  background: var(--color-surface);
+}
+
+.arrange-summary summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+/* --- 料理モード --- */
+
+.cook-mode {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 1.05rem;
+  line-height: 1.8;
+}
+
+.cook-mode-status {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--color-wakelock-bg);
+  color: var(--color-wakelock-text);
+  text-align: center;
+  padding: 0.5rem 1rem;
+}
+
+.cook-mode-status p {
+  margin: 0;
+}
+
+.cook-mode-status-btn {
+  background: transparent;
+  border: 1px solid var(--color-wakelock-text);
+  color: var(--color-wakelock-text);
+  min-height: 44px;
+  width: 100%;
+}
+
+.cook-mode-body {
+  flex: 1;
+  max-width: 720px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 1rem 1.25rem 6rem;
+}
+
+.cook-mode-body h1 {
+  font-size: 1.5rem;
+}
+
+.cook-mode-ingredients,
+.cook-mode-steps {
+  font-size: 1.25rem;
+  line-height: 1.8;
+}
+
+.cook-mode-steps > li {
+  margin-bottom: 1rem;
+}
+
+.cook-mode-footer {
+  position: sticky;
+  bottom: 0;
+  padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom));
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+}
+
+.cook-mode-exit {
+  width: 100%;
+  min-height: 52px;
+  font-size: 1.05rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --color-bg: #1c1e19;
+    --color-surface: #262922;
+    --color-text: #ecefe6;
+    --color-text-muted: #a9b09c;
+    --color-border: #3a3e33;
+    --color-primary: #6fbf8f;
+    --color-primary-dark: #8fd4ab;
+    --color-primary-contrast: #10201a;
+    --color-danger: #e28073;
+    --color-danger-contrast: #2a0f0b;
+    --color-link: #7fb8ec;
+    --color-badge-bg: #2e3227;
+    --color-badge-ai-bg: #3a3116;
+    --color-badge-ai-text: #e8c983;
+    --color-warning-bg: #3a2019;
+    --color-warning-text: #f0b3a3;
+    --color-wakelock-bg: #0f140f;
+    --color-wakelock-text: #ecefe6;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-bg: #1c1e19;
+  --color-surface: #262922;
+  --color-text: #ecefe6;
+  --color-text-muted: #a9b09c;
+  --color-border: #3a3e33;
+  --color-primary: #6fbf8f;
+  --color-primary-dark: #8fd4ab;
+  --color-primary-contrast: #10201a;
+  --color-danger: #e28073;
+  --color-danger-contrast: #2a0f0b;
+  --color-link: #7fb8ec;
+  --color-badge-bg: #2e3227;
+  --color-badge-ai-bg: #3a3116;
+  --color-badge-ai-text: #e8c983;
+  --color-warning-bg: #3a2019;
+  --color-warning-text: #f0b3a3;
+  --color-wakelock-bg: #0f140f;
+  --color-wakelock-text: #ecefe6;
+}

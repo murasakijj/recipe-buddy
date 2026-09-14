@@ -1,0 +1,131 @@
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { FirebaseError } from "firebase/app";
+import {
+  onAuthStateChanged,
+  signInWithPopup,
+  signOut,
+  type User,
+} from "firebase/auth";
+import { auth, googleProvider } from "../lib/firebase";
+import { checkAuth, ApiError } from "../lib/apiClient";
+import { AuthContext } from "./auth-context";
+
+/** signInWithPopup失敗時のエラーコードを日本語メッセージに変換する。 */
+function signInErrorMessage(err: unknown): string | null {
+  if (err instanceof FirebaseError) {
+    switch (err.code) {
+      case "auth/popup-blocked":
+        return "ポップアップがブロックされました。ブラウザの設定を確認してください。";
+      case "auth/unauthorized-domain":
+        return "このドメインは Firebase で承認されていません。";
+      case "auth/popup-closed-by-user":
+      case "auth/cancelled-popup-request":
+        // ユーザーが自分でポップアップを閉じただけなのでエラー表示しない。
+        return null;
+      default:
+        return "ログインに失敗しました。";
+    }
+  }
+  return "ログインに失敗しました。";
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [accessDenied, setAccessDenied] = useState(false);
+  const [authError, setAuthError] = useState(false);
+  const [signInError, setSignInError] = useState<string | null>(null);
+  const [sessionExpiredMessage, setSessionExpiredMessage] = useState<
+    string | null
+  >(null);
+
+  const authorize = useCallback(async () => {
+    setLoading(true);
+    setAuthError(false);
+    try {
+      await checkAuth();
+      setLoading(false);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 403) {
+        setAccessDenied(true);
+        try {
+          await signOut(auth);
+        } catch {
+          // サインアウト自体が失敗しても下のfinallyでloadingは解除する。
+        } finally {
+          setLoading(false);
+        }
+        return;
+      }
+      if (err instanceof ApiError && err.status === 401) {
+        setSessionExpiredMessage(
+          "認証が切れました。再度ログインしてください。",
+        );
+        try {
+          await signOut(auth);
+        } catch {
+          // 同上。
+        } finally {
+          setLoading(false);
+        }
+        return;
+      }
+      setAuthError(true);
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    return onAuthStateChanged(auth, (nextUser) => {
+      setUser(nextUser);
+      if (nextUser) {
+        void authorize();
+      } else {
+        setLoading(false);
+      }
+    });
+  }, [authorize]);
+
+  const signIn = async () => {
+    setAccessDenied(false);
+    setAuthError(false);
+    setSignInError(null);
+    setSessionExpiredMessage(null);
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (err) {
+      setSignInError(signInErrorMessage(err));
+    }
+  };
+
+  const signOutUser = async () => {
+    try {
+      await signOut(auth);
+    } catch {
+      // 呼び出し側は void signOutUser() で呼ぶことが多く、失敗しても
+      // unhandled rejection にしない。ログアウトボタン押下時程度なので
+      // 画面に出すほどではなく、開発時に追えるようwarnだけ残す。
+      console.warn("signOut failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        accessDenied,
+        authError,
+        signInError,
+        sessionExpiredMessage,
+        signIn,
+        signOutUser,
+        retryAuthorization: authorize,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+}

@@ -1,0 +1,21 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ログイン許可メール。Firebase Console に貼るときに自分のメールへ置き換える。
+    function isAllowedEmail() {
+      return request.auth != null
+        && request.auth.token.email != null
+        && request.auth.token.email in ['you@example.com'];
+    }
+
+    // 自分の uid 配下のみ読み書き可
+    match /users/{userId}/{document=**} {
+      allow read, write: if isAllowedEmail() && request.auth.uid == userId;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
