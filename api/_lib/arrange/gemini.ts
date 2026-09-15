@@ -89,6 +89,14 @@ const RESPONSE_SCHEMA: Schema = {
 };
 
 function toAiProviderError(err: unknown): AiProviderError {
+  // APIキーやリクエスト本文は出さず、原因追跡に必要な最小限だけ記録する。
+  const e = err as { name?: unknown; status?: unknown; message?: unknown };
+  console.error("[arrange] gemini error", {
+    name: e?.name,
+    status: e?.status,
+    message: e?.message,
+  });
+
   if (err instanceof GenAiApiError) {
     const code = err.status === 429 ? "rate_limited" : "upstream_error";
     return new AiProviderError(502, code);

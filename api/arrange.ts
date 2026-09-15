@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { ApiRequest, ApiResponse } from "./_lib/types.js";
 import { requireAuth, AuthError } from "./_lib/auth.js";
 import { sendJson, readJsonBody } from "./_lib/http.js";
@@ -57,9 +58,21 @@ export default async function handler(
         knownTechniqueIds,
         parsedBody.data.recipe.title,
       );
-    } catch {
+    } catch (err) {
       // AI出力がスキーマに合わない、または材料・手順が結果的に0件になった場合。
-      // 内部のスタック等は返さない。
+      // レスポンスには内部のスタック等は返さないが、ログには原因を残す。
+      const rawPreview = (() => {
+        try {
+          return JSON.stringify(raw).slice(0, 500);
+        } catch {
+          return undefined;
+        }
+      })();
+      console.error(
+        "[arrange] invalid ai output",
+        err instanceof z.ZodError ? err.issues : String(err),
+        rawPreview,
+      );
       sendJson(res, 502, { error: "invalid_ai_output" });
       return;
     }

@@ -37,8 +37,10 @@ export default function TechniqueList() {
     setDeleteError(null);
     try {
       await remove(id);
-    } catch {
-      setDeleteError("削除に失敗しました。");
+    } catch (err) {
+      console.error("[delete]", err);
+      const code = (err as { code?: string })?.code ?? "unknown";
+      setDeleteError(`削除に失敗しました。(${code})`);
     }
   }
 

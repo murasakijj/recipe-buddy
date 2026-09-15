@@ -83,7 +83,13 @@ export function RecipesProvider({ children }: { children: ReactNode }) {
       await deleteRecipe(uid, id);
       // 親削除時は子が parentRecipeId=null に更新されるため、
       // ローカル状態を個別パッチせず読み直して最新化する。
-      await reload();
+      // reload()の失敗は削除自体の失敗ではないので、ここで握って
+      // 呼び出し側(削除ボタン)に「削除に失敗した」と誤って伝えない。
+      try {
+        await reload();
+      } catch (err) {
+        console.error("[recipes] reload after delete failed", err);
+      }
     },
     [uid, reload],
   );
