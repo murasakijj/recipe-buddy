@@ -44,5 +44,8 @@
   },
   "engines": {
     "node": "22.x"
+  },
+  "overrides": {
+    "jose": "^4.15.5"
   }
 }
