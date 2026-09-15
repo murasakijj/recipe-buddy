@@ -9,7 +9,7 @@
 | 1 | 技術スタック | React 19 + Vite + TypeScript / react-router-dom / Firebase (Auth + Firestore) / Vercel (静的配信 + Functions) / Gemini API。詳細は [architecture.md](./architecture.md) |
 | 2 | 認証・公開範囲 | インターネット公開（Vercel）。Googleログイン必須。`ALLOWED_EMAILS` に含まれるメールのみ利用可。本人1名利用 |
 | 3 | データベース | Cloud Firestore。ユーザーごとのサブコレクション（`users/{uid}/...`）。詳細は [data-model.md](./data-model.md) |
-| 4 | AIサービスとAPIキー管理 | Gemini `gemini-2.5-flash`（無料枠）。APIキーは Vercel 環境変数 `GEMINI_API_KEY` のみに置き、`/api/arrange` 経由で呼ぶ。ブラウザには出さない |
+| 4 | AIサービスとAPIキー管理 | Gemini `gemini-3.6-flash`（無料枠）。APIキーは Vercel 環境変数 `GEMINI_API_KEY` のみに置き、`/api/arrange` 経由で呼ぶ。ブラウザには出さない。**2026-09-15: gemini-2.5-flash が新規ユーザー向けに提供終了したため gemini-3.6-flash に変更** |
 | 5 | MVP追加候補（§15）の採否 | **すべて不採用**（Markdownインポート／人数換算／調理記録は実装しない） |
 | 6 | 利用端末・対象ブラウザ | iPhone Safari（iOS 16.4+）と Android Chrome を主対象。PCは Chrome/Edge 最新で閲覧・編集できればよい |
 

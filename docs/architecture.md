@@ -16,7 +16,7 @@
 │  ├─ 静的配信: React + Vite SPA │    │  ├─ Authentication    │
 │  └─ Functions (/api/*)         │    │  └─ Firestore         │
 │      ├─ /api/auth-check       │    │     users/{uid}/...   │
-│      └─ /api/arrange ─────────┼──▶ Gemini API (gemini-2.5-flash)
+│      └─ /api/arrange ─────────┼──▶ Gemini API (gemini-3.6-flash)
 └──────────────────────────────┘    └──────────────────────┘
 ```
 
@@ -39,7 +39,7 @@
 | ホスティング | Vercel（Hobby） | GitHub push で自動デプロイ |
 | API | Vercel Functions（`api/` ディレクトリ、Node.js） | 型は `api/_lib/types.ts` の最小定義（`@vercel/node` は使わない） |
 | トークン検証 | firebase-admin | `verifyIdToken` |
-| AI | `@google/genai` + `gemini-2.5-flash` | JSON構造化出力 |
+| AI | `@google/genai` + `gemini-3.6-flash` | JSON構造化出力 |
 | スキーマ検証 | zod | AI出力とAPIボディの検証 |
 | テスト | vitest | ロジック（マーカー解析、AI出力検証、認証）に単体テスト |
 
@@ -60,7 +60,7 @@ Vercel（サーバー側、秘密）:
 | `FIREBASE_SERVICE_ACCOUNT` | firebase-admin 初期化用サービスアカウント JSON（1行化） |
 | `ALLOWED_EMAILS` | ログイン許可メール（カンマ区切り、小文字比較） |
 | `GEMINI_API_KEY` | Gemini API キー |
-| `GEMINI_MODEL` | 任意。既定 `gemini-2.5-flash` |
+| `GEMINI_MODEL` | 任意。既定 `gemini-3.6-flash` |
 
 フロント（`VITE_` プレフィックス、公開値）:
 

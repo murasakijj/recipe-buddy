@@ -23,7 +23,7 @@
 
 - React 19 + Vite + TypeScript、react-router-dom、素の CSS（モバイルファースト）
 - Firebase Authentication（Google）+ Cloud Firestore（`users/{uid}/recipes`, `users/{uid}/techniques`）
-- Vercel（静的配信 + Functions `api/`）。`/api/arrange` が Gemini `gemini-2.5-flash` を呼ぶ
+- Vercel（静的配信 + Functions `api/`）。`/api/arrange` が Gemini `gemini-3.6-flash` を呼ぶ
 - zod（AI 出力・API ボディ検証）、vitest
 
 ## 絶対に守るセキュリティルール

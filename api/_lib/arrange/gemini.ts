@@ -7,8 +7,12 @@ import {
 import { ARRANGE_SYSTEM_PROMPT, buildUserMessage } from "./prompt.js";
 import type { ArrangeRequestBody } from "./schema.js";
 
-/** 無料枠の対象モデル。GEMINI_MODEL 環境変数で上書き可能。 */
-const DEFAULT_MODEL = "gemini-2.5-flash";
+/**
+ * 無料枠の対象モデル。GEMINI_MODEL 環境変数で上書き可能。
+ * 2026-09-15: gemini-2.5-flash が新規ユーザー向けに提供終了したため
+ * gemini-3.6-flash に変更(docs/decisions.md 参照)。
+ */
+const DEFAULT_MODEL = "gemini-3.6-flash";
 /** Vercel の maxDuration(60秒)より先に自前の502を返すため、50秒で切る(docs/api.md)。 */
 const TIMEOUT_MS = 50_000;
 
@@ -22,7 +26,7 @@ export class AiProviderError extends Error {
   }
 }
 
-function getModel(): string {
+export function getModel(): string {
   return process.env.GEMINI_MODEL?.trim() || DEFAULT_MODEL;
 }
 

@@ -68,7 +68,7 @@
 ### Gemini 呼び出し
 
 - `@google/genai` の `generateContent` を `config.responseMimeType = "application/json"` と `config.responseSchema` 付きで呼ぶ。
-- モデルは `GEMINI_MODEL`（既定 `gemini-2.5-flash`）。
+- モデルは `GEMINI_MODEL`（既定 `gemini-3.6-flash`）。
 - `responseSchema` は上記レスポンス形に対応させる（`ingredients[]`, `steps[]`, `changeSummary[]`, `safetyNotes[]`, `questions[]`, `newTechniqueCandidates[]`）。
 - 返ってきた JSON を zod で再検証してから返す（二重防御）。
 - AI 呼び出しのタイムアウトは 50 秒（Vercel の `maxDuration` 60 秒より先に自前の 502 を返す）。`maxDuration` は 60 に設定（`vercel.json` の `functions` または `export const config`）。
