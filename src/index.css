@@ -576,8 +576,7 @@ dialog::backdrop {
   flex-direction: column;
   background: var(--color-bg);
   color: var(--color-text);
-  font-size: 1.05rem;
-  line-height: 1.8;
+  line-height: 1.6;
 }
 
 .cook-mode-status {
@@ -610,18 +609,13 @@ dialog::backdrop {
   padding: 1rem 1.25rem 6rem;
 }
 
-.cook-mode-body h1 {
-  font-size: 1.5rem;
-}
-
 .cook-mode-ingredients,
 .cook-mode-steps {
-  font-size: 1.25rem;
-  line-height: 1.8;
+  line-height: 1.6;
 }
 
 .cook-mode-steps > li {
-  margin-bottom: 1rem;
+  margin-bottom: 0.6rem;
 }
 
 .cook-mode-footer {
