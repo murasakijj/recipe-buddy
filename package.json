@@ -41,5 +41,8 @@
     "@firebase/util@1.15.3": true,
     "@google/genai@2.22.0": true,
     "protobufjs@7.6.6": true
+  },
+  "engines": {
+    "node": "22.x"
   }
 }
