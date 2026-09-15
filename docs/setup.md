@@ -46,3 +46,10 @@ npm run dev                  # フロントのみ（/api は動かない）
 - スマホでログイン → レシピ登録 → 詳細 → 料理モードで画面が消えないこと（iOS Safari 16.4+ / Android Chrome）
 - テクニックリンク → モーダル → 閉じてスクロール位置が保たれること
 - アレンジ生成 → 今回だけ料理 / 子として保存 → 親子を相互にたどれること
+
+## 6. トラブル時の確認場所
+
+- **Vercel Functions のエラー**: Vercel → プロジェクト → 上部タブ「Logs」→ `/api/...` の赤い行（500）をクリックすると、`Error:` で始まる実際のエラー文とスタックが見える。「認証サーバーに接続できませんでした」が出るときはまずここを見る。
+- **ビルド失敗**: Vercel → 「Deployments」→ 該当デプロイ → 「Building」のログ。
+- **Firestore の拒否**: ブラウザの開発者ツール Console に `permission-denied` が出る。ルールの許可メールを確認する。
+- **既知の落とし穴**: `firebase-admin` が使う `jwks-rsa` は ESM 専用の `jose` v6 を `require()` するため、Vercel のランタイムで `ERR_REQUIRE_ESM` になる。`package.json` の `overrides` で `jose` を v4 に固定している。依存を更新するときはこの行を消さないこと。
