@@ -5,7 +5,11 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", "node_modules"] },
+  {
+    // scripts/*.mjs はアプリ本体(src/, api/)に含まれない一回限りの
+    // ローカルNodeスクリプト(scripts/README.md参照)。lintの対象外にする。
+    ignores: ["dist", "node_modules", "scripts/**/*.mjs"],
+  },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],

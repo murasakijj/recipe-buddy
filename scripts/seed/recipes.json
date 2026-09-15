@@ -1,0 +1,569 @@
+[
+  {
+    "importKey": "2026-09-06-taco-rice",
+    "title": "野菜たっぷりタコライス",
+    "description": "初回メモ:\n- ご飯が見えなくなるほど野菜を載せても、混ぜながら食べれば問題なし。\n- アボカドは変色しやすいので最後に切る。\n- レタスが少なくても、きゅうり・トマト・アボカドで十分成立する。",
+    "servings": "1人分・野菜多め",
+    "cookingTimeMinutes": null,
+    "category": "丼",
+    "tags": ["2026-09-06"],
+    "ingredients": [
+      { "name": "ご飯", "quantity": "1", "unit": "杯", "note": "茶わん" },
+      { "name": "ひき肉", "quantity": "100〜150", "unit": "g", "note": null },
+      {
+        "name": "タコライスの素",
+        "quantity": "1",
+        "unit": "人分",
+        "note": null
+      },
+      { "name": "玉ねぎ", "quantity": "1/4〜1/2", "unit": "個", "note": null },
+      { "name": "アボカド", "quantity": "1", "unit": "個", "note": null },
+      { "name": "きゅうり", "quantity": "1", "unit": "本", "note": null },
+      {
+        "name": "ミニトマト",
+        "quantity": "食べたいだけ",
+        "unit": null,
+        "note": null
+      },
+      {
+        "name": "レタス",
+        "quantity": "あるだけ",
+        "unit": null,
+        "note": "初回は1枚"
+      },
+      {
+        "name": "ピザ用チーズ",
+        "quantity": "好みで",
+        "unit": null,
+        "note": null
+      },
+      { "name": "油", "quantity": "少量", "unit": null, "note": null }
+    ],
+    "steps": [
+      {
+        "instruction": "玉ねぎをみじん切り、きゅうりとアボカドを食べやすい大きさ、ミニトマトを半分に切る。レタスは細切りにする。"
+      },
+      { "instruction": "フライパンに油を入れ、玉ねぎを中火で2〜3分炒める。" },
+      { "instruction": "ひき肉を加え、ほぐしながら色が変わるまで炒める。" },
+      { "instruction": "タコライスの素を加え、商品の説明どおりに仕上げる。" },
+      { "instruction": "ご飯にタコミート、野菜、好みでチーズを載せる。" }
+    ]
+  },
+  {
+    "importKey": "2026-09-06-avocado-fried-egg-don",
+    "title": "アボカド目玉焼き丼",
+    "description": "初回メモ:\n- 半熟の黄身を崩し、全体を混ぜて食べる。\n- アボカド1個の場合、ご飯はやや多めでも釣り合う。\n- 納豆やキムチを添えるなら、納豆のタレは半量程度でよい。",
+    "servings": "1人分",
+    "cookingTimeMinutes": null,
+    "category": "丼",
+    "tags": ["2026-09-06"],
+    "ingredients": [
+      { "name": "ご飯", "quantity": "1", "unit": "杯", "note": "茶わん" },
+      { "name": "アボカド", "quantity": "1", "unit": "個", "note": null },
+      { "name": "卵", "quantity": "1", "unit": "個", "note": null },
+      { "name": "醤油", "quantity": "2", "unit": "小さじ", "note": null },
+      { "name": "ごま油", "quantity": "1/2", "unit": "小さじ", "note": null },
+      { "name": "マヨネーズ", "quantity": "適量", "unit": null, "note": null },
+      {
+        "name": "わさび",
+        "quantity": "好みで少量",
+        "unit": null,
+        "note": null
+      },
+      {
+        "name": "白ごま・海苔",
+        "quantity": "あれば",
+        "unit": null,
+        "note": null
+      },
+      {
+        "name": "目玉焼き用の油",
+        "quantity": "1",
+        "unit": "小さじ",
+        "note": null
+      }
+    ],
+    "steps": [
+      { "instruction": "アボカドを1〜2cm角に切る。" },
+      { "instruction": "醤油、ごま油、好みでわさびを混ぜ、アボカドを和える。" },
+      {
+        "instruction": "フライパンに油を入れ、中火で約30秒温めて卵を割り入れる。"
+      },
+      {
+        "instruction": "白身の縁が白くなったら、フライパンの端から水大さじ1を入れる。"
+      },
+      {
+        "instruction": "蓋をして弱火で約2分蒸し焼きにする。白身が固まり、黄身が柔らかければ完成。"
+      },
+      {
+        "instruction": "ご飯にアボカドと目玉焼きを載せ、マヨネーズと白ごまをかける。"
+      }
+    ]
+  },
+  {
+    "importKey": "2026-09-06-salmon-mushroom-foil",
+    "title": "鮭ときのこの包み蒸し",
+    "description": "塩鮭の場合、追加の塩は不要。\n\n初回メモ:\n- 大量の具を入れる場合、最初からホイル2枚で上下を挟むと閉じやすい。\n- 巨大な包みは持ち上げず、鍋の中で開いてトングやフライ返しで皿へ移すと安全。\n- ポン酢がなくてもバター醤油で十分おいしい。",
+    "servings": "1人分・野菜大量消費版",
+    "cookingTimeMinutes": null,
+    "category": "主菜",
+    "tags": ["2026-09-06"],
+    "ingredients": [
+      { "name": "鮭", "quantity": "1", "unit": "切れ", "note": null },
+      { "name": "えのき", "quantity": "1", "unit": "袋", "note": null },
+      { "name": "舞茸", "quantity": "1", "unit": "袋", "note": null },
+      { "name": "玉ねぎ", "quantity": "1/2", "unit": "個", "note": null },
+      { "name": "人参", "quantity": "1", "unit": "本", "note": null },
+      { "name": "じゃがいも", "quantity": "1", "unit": "個", "note": null },
+      { "name": "酒", "quantity": "1", "unit": "大さじ", "note": null },
+      { "name": "バター", "quantity": "10", "unit": "g", "note": null },
+      { "name": "こしょう", "quantity": "少々", "unit": null, "note": null },
+      { "name": "醤油", "quantity": "1〜2", "unit": "小さじ", "note": null },
+      {
+        "name": "アルミホイル",
+        "quantity": "2",
+        "unit": "枚",
+        "note": "大きめ"
+      }
+    ],
+    "steps": [
+      {
+        "instruction": "冷凍鮭は冷蔵庫で解凍する。急ぐ場合は袋に入れたまま冷水へ20〜30分浸け、水分を拭く。"
+      },
+      {
+        "instruction": "玉ねぎ、人参、じゃがいもを薄切りにする。特に人参とじゃがいもは2〜3mm程度にする。"
+      },
+      { "instruction": "えのきの根元を切ってほぐし、舞茸も手でほぐす。" },
+      {
+        "instruction": "ホイルに、じゃがいも・人参・玉ねぎ、鮭、えのき・舞茸の順で載せる。"
+      },
+      { "instruction": "酒とこしょうをかけ、バターを載せる。" },
+      {
+        "instruction": "具が多くて1枚で閉じられない場合は、上からもう1枚のホイルをかぶせ、上下の縁を一緒に2〜3回折って閉じる。"
+      },
+      {
+        "instruction": "フライパンへ包みを置き、包みの外側に水100mlを入れて蓋をする。"
+      },
+      { "instruction": "中火で沸騰させた後、弱めの中火で18〜20分蒸す。" },
+      {
+        "instruction": "鮭の中央がほぐれ、じゃがいもが柔らかいことを確認する。足りなければ3〜5分追加する。"
+      },
+      { "instruction": "皿へ移し、醤油を小さじ1から味を見ながらかける。" }
+    ]
+  },
+  {
+    "importKey": "2026-09-06-mince-vegetable-fried-rice",
+    "title": "ひき肉と野菜のチャーハン",
+    "description": "初回メモ:\n- 野菜の割合が高いため、標準的なチャーハンより味が薄まりやすい。\n- クレイジーソルトを加えると、ひき肉と野菜に合う洋風寄りの味になった。\n- 山椒も合うが、クレイジーソルトと両方使うと香りが混雑するため、どちらか一方にする。\n- 材料が多すぎて混ぜにくい場合、炒めた野菜を半分避難させ、2回に分けて仕上げる。",
+    "servings": "1〜2食分・野菜大量消費版",
+    "cookingTimeMinutes": null,
+    "category": "主食",
+    "tags": ["2026-09-06"],
+    "ingredients": [
+      {
+        "name": "温かいご飯",
+        "quantity": "1.5〜2",
+        "unit": "食分",
+        "note": null
+      },
+      { "name": "ひき肉", "quantity": "150〜190", "unit": "g", "note": null },
+      { "name": "長ネギ", "quantity": "1", "unit": "本", "note": null },
+      { "name": "人参", "quantity": "1", "unit": "本", "note": null },
+      { "name": "玉ねぎ", "quantity": "1/2", "unit": "個", "note": null },
+      { "name": "しょうが", "quantity": "1", "unit": "かけ", "note": null },
+      { "name": "卵", "quantity": "2", "unit": "個", "note": null },
+      { "name": "油", "quantity": "1〜1.5", "unit": "大さじ", "note": null },
+      {
+        "name": "鶏ガラスープの素",
+        "quantity": "1",
+        "unit": "小さじ",
+        "note": null
+      },
+      { "name": "醤油", "quantity": "2", "unit": "小さじ", "note": null },
+      { "name": "こしょう", "quantity": "少々", "unit": null, "note": null },
+      {
+        "name": "クレイジーソルト",
+        "quantity": "味の調整用",
+        "unit": null,
+        "note": null
+      }
+    ],
+    "steps": [
+      {
+        "instruction": "長ネギ、人参、玉ねぎ、しょうがをみじん切りにする。人参は細かめに切る。"
+      },
+      { "instruction": "冷凍ご飯は電子レンジで熱々にし、ほぐしておく。" },
+      {
+        "instruction": "フライパンに油を少量入れ、ひき肉を中火でほぐしながら炒める。"
+      },
+      {
+        "instruction": "ひき肉の赤い部分がなくなったら、人参と玉ねぎを加えて5〜6分炒める。"
+      },
+      { "instruction": "しょうがと長ネギを加え、さらに2分炒める。" },
+      { "instruction": "具を端へ寄せ、空いた場所へ油少量と溶き卵を入れる。" },
+      { "instruction": "卵が半熟のうちにご飯を加え、全体を3〜4分炒める。" },
+      {
+        "instruction": "鶏ガラスープの素とこしょうを加え、鍋肌から醤油を回し入れる。"
+      },
+      {
+        "instruction": "味が薄ければ、クレイジーソルトを少量ずつ振って調整する。"
+      }
+    ]
+  },
+  {
+    "importKey": "2026-09-06-mince-ginger-soboro",
+    "title": "ひき肉の生姜焼き風そぼろ",
+    "description": "初回メモ:\n- 汁が多めに残っても、ご飯にかける丼としておいしく食べられる。\n- 汁気を減らしたい場合は、最後に蓋をせず中火で追加加熱する。\n- 玉ねぎを1.5個使う場合は、醤油とみりんを各大さじ2程度に増やす。",
+    "servings": "1〜2食分",
+    "cookingTimeMinutes": null,
+    "category": "丼",
+    "tags": ["2026-09-06"],
+    "ingredients": [
+      { "name": "ひき肉", "quantity": "150〜190", "unit": "g", "note": null },
+      { "name": "玉ねぎ", "quantity": "1", "unit": "個", "note": "前後" },
+      { "name": "しょうが", "quantity": "1〜2", "unit": "かけ", "note": null },
+      { "name": "油", "quantity": "少量", "unit": null, "note": null },
+      { "name": "醤油", "quantity": "1.5", "unit": "大さじ", "note": null },
+      { "name": "みりん", "quantity": "1.5", "unit": "大さじ", "note": null },
+      { "name": "酒", "quantity": "1", "unit": "大さじ", "note": null },
+      { "name": "砂糖", "quantity": "1", "unit": "小さじ", "note": null }
+    ],
+    "steps": [
+      { "instruction": "玉ねぎを薄切り、または粗めのみじん切りにする。" },
+      { "instruction": "しょうがをすりおろすか、細かいみじん切りにする。" },
+      { "instruction": "醤油、みりん、酒、砂糖、しょうがを混ぜておく。" },
+      { "instruction": "フライパンに油を入れ、玉ねぎを中火で4〜5分炒める。" },
+      {
+        "instruction": "ひき肉を加え、赤い部分がなくなるまでほぐしながら炒める。"
+      },
+      { "instruction": "合わせ調味料を加え、2〜3分炒め煮にする。" },
+      { "instruction": "ご飯に載せて完成。" }
+    ]
+  },
+  {
+    "importKey": "2026-09-06-cucumber-crazy-salt",
+    "title": "きゅうりのクレイジーソルト和え",
+    "description": "初回メモ:\n- 時間を置くと水分が出るため、食べる直前に作る。\n- 濃い味の主菜に添える場合、油を加えないさっぱり仕様が合う。",
+    "servings": "1人分",
+    "cookingTimeMinutes": null,
+    "category": "副菜",
+    "tags": ["2026-09-06"],
+    "ingredients": [
+      { "name": "きゅうり", "quantity": "1", "unit": "本", "note": null },
+      {
+        "name": "クレイジーソルト",
+        "quantity": "2〜3",
+        "unit": "振り",
+        "note": null
+      }
+    ],
+    "steps": [
+      { "instruction": "きゅうりを洗い、両端を切る。" },
+      { "instruction": "5mm程度の輪切り、または乱切りにする。" },
+      { "instruction": "クレイジーソルトを振って混ぜる。" },
+      { "instruction": "5分ほど置いて完成。" }
+    ]
+  },
+  {
+    "importKey": "2026-09-09-frozen-mackerel-grill",
+    "title": "冷凍鯖のグリル焼き",
+    "description": "次回の改善点:\n今回は冷凍のまま焼いたため、皮側が先に焦げやすかった。次回は最初から中弱火寄りで、片面5～7分 → 裏返す → 5～7分 → 中心確認くらいから始める。",
+    "servings": null,
+    "cookingTimeMinutes": null,
+    "category": "主菜",
+    "tags": ["2026-09-09"],
+    "ingredients": [
+      {
+        "name": "生鯖フィーレ",
+        "quantity": "人数分",
+        "unit": null,
+        "note": null
+      },
+      { "name": "塩", "quantity": "少々", "unit": null, "note": null }
+    ],
+    "steps": [
+      { "instruction": "冷凍状態の鯖をグリルに入れる。" },
+      { "instruction": "中火程度で焼き始める。" },
+      {
+        "instruction": "皮がプツプツしてくるのは問題なし。鯖の脂や水分によるもの。"
+      },
+      {
+        "instruction": "皮側に焼き色がつき、焦げ始める前後で裏返す。今回は5～7分程度で一度様子を確認した。"
+      },
+      { "instruction": "裏返したら、弱火～中弱火にする。" },
+      { "instruction": "身側を5～7分程度焼く。" },
+      {
+        "instruction": "一番厚い部分を菜箸などで少し開いて、火の通りを確認する。白～薄いベージュ色で不透明。身がほぐれる。ピンク色・半透明の部分が残っていない。"
+      },
+      { "instruction": "生っぽければ2～3分ずつ追加で焼く。" },
+      {
+        "instruction": "焼けたらグリルから取り出す。食べるまで時間がある場合は皿に置いて、ふんわりラップ。"
+      }
+    ]
+  },
+  {
+    "importKey": "2026-09-09-maitake-tofu-egg-miso-soup",
+    "title": "舞茸・豆腐・卵の具沢山味噌汁",
+    "description": "ポイント:\n- 舞茸は基本的に洗わない。\n- 沸騰後はグツグツさせず、中弱火程度。\n- 味噌を入れるときは火を止める。\n- 豆腐＋卵入りなので、普通の味噌汁より食べ応えあり。",
+    "servings": "約4人分",
+    "cookingTimeMinutes": null,
+    "category": "汁物",
+    "tags": ["2026-09-09"],
+    "ingredients": [
+      { "name": "水", "quantity": "800", "unit": "ml", "note": null },
+      { "name": "舞茸", "quantity": "1", "unit": "パック", "note": null },
+      { "name": "豆腐", "quantity": "1", "unit": "丁", "note": null },
+      { "name": "卵", "quantity": "2", "unit": "個", "note": null },
+      {
+        "name": "顆粒だし",
+        "quantity": "1.5～2",
+        "unit": "小さじ",
+        "note": null
+      },
+      { "name": "味噌", "quantity": "3～4", "unit": "大さじ", "note": null }
+    ],
+    "steps": [
+      { "instruction": "舞茸は洗わず、手で食べやすい大きさに裂く。" },
+      { "instruction": "豆腐をさいの目に切る。" },
+      { "instruction": "卵2個を器に割り、溶いておく。" },
+      { "instruction": "鍋に水800ml、顆粒だし、舞茸を入れて火にかける。" },
+      { "instruction": "沸騰したら中弱火にする。" },
+      { "instruction": "豆腐を加えて2～3分程度煮る。" },
+      { "instruction": "溶き卵を細く回し入れる。" },
+      { "instruction": "すぐに混ぜず、20～30秒ほど待つ。" },
+      { "instruction": "卵が固まってきたら軽く混ぜる。" },
+      { "instruction": "火を止める。" },
+      { "instruction": "味噌をまず大さじ3程度溶かす。" },
+      { "instruction": "味見して、薄ければ味噌を追加する。" }
+    ]
+  },
+  {
+    "importKey": "2026-09-09-cucumber-tomato-marinade",
+    "title": "きゅうりとミニトマトの和風マリネ",
+    "description": "保存:\n余った場合は、漬け汁ごと冷蔵庫へ。翌日は味が染みて、浅漬け・マリネのように食べられる。",
+    "servings": null,
+    "cookingTimeMinutes": null,
+    "category": "副菜",
+    "tags": ["2026-09-09"],
+    "ingredients": [
+      { "name": "きゅうり", "quantity": "1", "unit": "本", "note": null },
+      {
+        "name": "ミニトマト",
+        "quantity": "6～10",
+        "unit": "個",
+        "note": "程度"
+      },
+      {
+        "name": "酢",
+        "quantity": "1",
+        "unit": "大さじ",
+        "note": "ドレッシング"
+      },
+      {
+        "name": "醤油",
+        "quantity": "1",
+        "unit": "大さじ",
+        "note": "ドレッシング"
+      },
+      {
+        "name": "ごま油",
+        "quantity": "1～2",
+        "unit": "小さじ",
+        "note": "ドレッシング"
+      },
+      {
+        "name": "砂糖",
+        "quantity": "1/2",
+        "unit": "小さじ",
+        "note": "ドレッシング"
+      }
+    ],
+    "steps": [
+      { "instruction": "きゅうりを洗い、輪切りまたは食べやすい大きさに切る。" },
+      {
+        "instruction": "ミニトマトを洗い、半分に切る。半分にすると味が染みやすい。"
+      },
+      {
+        "instruction": "ボウルまたは保存容器に、酢・醤油・ごま油・砂糖を入れて混ぜる。"
+      },
+      { "instruction": "きゅうりとミニトマトを加える。" },
+      { "instruction": "全体を和える。" },
+      { "instruction": "そのまま食べてもOK。" },
+      { "instruction": "10～20分置くと、より味が馴染む。" }
+    ]
+  },
+  {
+    "importKey": "2026-09-09-donabe-rice",
+    "title": "土鍋ご飯",
+    "description": "普段使っている土鍋の炊飯方法で3合炊く。",
+    "servings": null,
+    "cookingTimeMinutes": null,
+    "category": "主食",
+    "tags": ["2026-09-09"],
+    "ingredients": [
+      { "name": "米", "quantity": "3", "unit": "合", "note": null }
+    ],
+    "steps": [
+      {
+        "instruction": "【炊き上がった後】火を止めたら、蓋を開けずに10～15分程度蒸らす。"
+      },
+      { "instruction": "【炊き上がった後】蒸らしが終わったら蓋を開ける。" },
+      { "instruction": "【炊き上がった後】しゃもじを底まで入れる。" },
+      {
+        "instruction": "【炊き上がった後】底からご飯を持ち上げるように、ふんわり返す。"
+      },
+      {
+        "instruction": "【炊き上がった後】数か所繰り返して、水分を均一にする。"
+      },
+      {
+        "instruction": "【炊き上がった後】食べるまで少し時間がある場合は、再び蓋をしておく。"
+      },
+      {
+        "instruction": "【余ったご飯】温かいうちに1食分ずつ保存容器へ取り分ける。"
+      },
+      { "instruction": "【余ったご飯】粗熱を取る。" },
+      { "instruction": "【余ったご飯】冷凍する。" }
+    ]
+  },
+  {
+    "importKey": "2026-09-14-pork-potato-pepper-mushroom-garlic-butter",
+    "title": "豚肉・じゃがいも・ピーマン・きのこのガーリックバター炒め",
+    "description": "調理メモ:\n- 冷凍豚肉は完全解凍しなくてもよい。\n- 豚肉から出る水分を先に飛ばしてから野菜を入れると、べちゃっとしにくい。\n- じゃがいもは事前にレンジ加熱しておくことで大幅に時短できる。\n- メインは甘辛味ではなく、にんにく・バター・醤油で香ばしく仕上げる。",
+    "servings": "2人分",
+    "cookingTimeMinutes": null,
+    "category": "主菜",
+    "tags": ["2026-09-14"],
+    "ingredients": [
+      { "name": "冷凍豚肉", "quantity": "200〜250", "unit": "g", "note": null },
+      { "name": "じゃがいも", "quantity": "2", "unit": "個", "note": null },
+      { "name": "ピーマン", "quantity": "2〜3", "unit": "個", "note": null },
+      {
+        "name": "しめじ・舞茸などのきのこ",
+        "quantity": "合計1パック程度",
+        "unit": null,
+        "note": null
+      },
+      {
+        "name": "にんにくチューブ",
+        "quantity": "2〜3",
+        "unit": "cm",
+        "note": null
+      },
+      { "name": "バター", "quantity": "10", "unit": "g", "note": null },
+      { "name": "醤油", "quantity": "1〜2", "unit": "小さじ", "note": null },
+      { "name": "塩", "quantity": "少々", "unit": null, "note": null },
+      { "name": "こしょう", "quantity": "少々", "unit": null, "note": null },
+      { "name": "炒め油", "quantity": "少量", "unit": null, "note": null }
+    ],
+    "steps": [
+      { "instruction": "【冷凍豚肉を半解凍する】冷凍豚肉を耐熱皿に出す。" },
+      {
+        "instruction": "【冷凍豚肉を半解凍する】電子レンジ200Wで1分30秒〜2分加熱する。"
+      },
+      {
+        "instruction": "【冷凍豚肉を半解凍する】一度取り出し、剥がせる肉から1枚ずつ剥がす。"
+      },
+      {
+        "instruction": "【冷凍豚肉を半解凍する】中心がまだカチカチの場合は、30秒ずつ追加加熱する。完全解凍する必要はない。1枚ずつある程度ほぐせる状態になればOK。"
+      },
+      {
+        "instruction": "【じゃがいもをレンジ加熱する】じゃがいもを5〜8mm程度の薄めの一口大に切る。"
+      },
+      {
+        "instruction": "【じゃがいもをレンジ加熱する】耐熱容器に入れて軽くラップする。"
+      },
+      {
+        "instruction": "【じゃがいもをレンジ加熱する】600Wで4〜5分加熱する。少し硬さが残る程度でOK。フライパンで仕上げる。"
+      },
+      {
+        "instruction": "【野菜を準備する】ピーマン：細切り。しめじ・舞茸：食べやすくほぐす。"
+      },
+      {
+        "instruction": "【豚肉を先に炒める】フライパンに油を少量入れ、中火〜やや強めの中火にする。"
+      },
+      {
+        "instruction": "【豚肉を先に炒める】半解凍した豚肉を入れ、菜箸で剥がしながら炒める。"
+      },
+      {
+        "instruction": "【豚肉を先に炒める】冷凍肉から出る水分を飛ばしながら、肉の色がほぼ変わるまで炒める。"
+      },
+      {
+        "instruction": "【豚肉を先に炒める】塩・こしょうを軽く振る。冷凍肉は水分が出やすいので、野菜を最初から入れないのがポイント。"
+      },
+      { "instruction": "【野菜を加える】じゃがいもを加える。" },
+      { "instruction": "【野菜を加える】きのこを加える。" },
+      { "instruction": "【野菜を加える】ピーマンを加える。" },
+      { "instruction": "【野菜を加える】全体を2〜3分炒める。" },
+      { "instruction": "【味付けする】にんにくチューブ2〜3cmを加える。" },
+      { "instruction": "【味付けする】バター10gを加えて全体に絡める。" },
+      { "instruction": "【味付けする】醤油小さじ1を鍋肌から回し入れる。" },
+      {
+        "instruction": "【味付けする】味見し、足りなければ醤油をさらに小さじ1追加する。"
+      },
+      {
+        "instruction": "【味付けする】豚肉に赤い部分が残っていないことを確認して完成。"
+      }
+    ]
+  },
+  {
+    "importKey": "2026-09-14-tofu-egg-wakame-miso-soup",
+    "title": "豆腐・卵・わかめの味噌汁",
+    "description": "調理メモ:\n- 味噌汁は卵を入れてから10〜20秒触らず待つ。",
+    "servings": "2人分",
+    "cookingTimeMinutes": null,
+    "category": "汁物",
+    "tags": ["2026-09-14"],
+    "ingredients": [
+      { "name": "水", "quantity": "400〜450", "unit": "ml", "note": null },
+      { "name": "だし", "quantity": "適量", "unit": null, "note": null },
+      { "name": "豆腐", "quantity": "1/2", "unit": "丁", "note": null },
+      { "name": "卵", "quantity": "1", "unit": "個", "note": null },
+      {
+        "name": "乾燥わかめ",
+        "quantity": "ひとつまみ",
+        "unit": null,
+        "note": null
+      },
+      { "name": "味噌", "quantity": "2", "unit": "大さじ", "note": "前後" }
+    ],
+    "steps": [
+      { "instruction": "鍋に水とだしを入れて火にかける。" },
+      { "instruction": "豆腐をさいの目に切って加える。" },
+      { "instruction": "沸いたら弱火にし、2〜3分温める。" },
+      { "instruction": "乾燥わかめを加える。" },
+      { "instruction": "火を弱めるか一度止め、味噌を溶く。" },
+      { "instruction": "再び弱火にする。" },
+      { "instruction": "卵を溶き、細く回し入れる。" },
+      { "instruction": "10〜20秒触らず待つ。" },
+      { "instruction": "卵が固まり始めたら、そっと混ぜる。" },
+      {
+        "instruction": "沸騰する前に火を止めて完成。卵を入れた直後に混ぜないと、ふんわり仕上がりやすい。"
+      }
+    ]
+  },
+  {
+    "importKey": "2026-09-14-mizuna-tomato-salad",
+    "title": "水菜・ミニトマトのサラダ",
+    "description": "おすすめドレッシング:\nメインがガーリックバター味なので、以下のようなさっぱり系が合わせやすい。\n- 青じそドレッシング\n- 和風ドレッシング\n- ポン酢系ドレッシング",
+    "servings": "2人分",
+    "cookingTimeMinutes": null,
+    "category": "副菜",
+    "tags": ["2026-09-14"],
+    "ingredients": [
+      { "name": "水菜", "quantity": "1/2", "unit": "袋", "note": "程度" },
+      { "name": "ミニトマト", "quantity": "6〜8", "unit": "個", "note": null },
+      {
+        "name": "好みのドレッシング",
+        "quantity": "適量",
+        "unit": null,
+        "note": null
+      }
+    ],
+    "steps": [
+      { "instruction": "水菜を4〜5cm幅に切る。" },
+      { "instruction": "ミニトマトを半分に切る。" },
+      { "instruction": "器に盛り付ける。" },
+      { "instruction": "食べる直前にドレッシングをかける。" }
+    ]
+  }
+]
