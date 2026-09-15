@@ -64,9 +64,14 @@ export async function requireAuth(
     throw new AuthError(401, "missing_token");
   }
 
+  // getFirebaseApp() はtryの外で呼ぶ。FIREBASE_SERVICE_ACCOUNT が未設定/不正
+  // という設定ミスは、トークン自体の不正(401 invalid_token)とは区別し、
+  // ハンドラのouter catchで 500 internal_error として扱わせる。
+  const app = getFirebaseApp();
+
   let decoded;
   try {
-    decoded = await getAuth(getFirebaseApp()).verifyIdToken(token);
+    decoded = await getAuth(app).verifyIdToken(token);
   } catch {
     throw new AuthError(401, "invalid_token");
   }

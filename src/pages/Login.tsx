@@ -11,6 +11,7 @@ export default function Login() {
     sessionExpiredMessage,
     signIn,
     retryAuthorization,
+    signOutUser,
   } = useAuth();
 
   // ログイン(認証+認可)済みならホームへ。RequireAuthが children を表示する条件と揃える。
@@ -28,6 +29,9 @@ export default function Login() {
           <p role="alert">認証サーバーに接続できませんでした。</p>
           <button type="button" onClick={() => void retryAuthorization()}>
             再試行
+          </button>
+          <button type="button" onClick={() => void signOutUser()}>
+            ログアウトしてやり直す
           </button>
         </>
       )}

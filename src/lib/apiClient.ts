@@ -9,11 +9,26 @@ export class ApiError extends Error {
   }
 }
 
-async function readError(res: Response): Promise<string> {
-  const body = (await res.json().catch(() => null)) as {
-    error?: string;
-  } | null;
-  return body?.error ?? "unknown_error";
+/**
+ * エラーレスポンスからコードを取り出す。VercelがFunction自体をロードできず
+ * HTMLの500ページを返すことがあるため、JSONとしてパースできない場合は
+ * それと分かるよう "server_error" にする("unknown_error" とは区別する)。
+ */
+export async function readError(res: Response): Promise<string> {
+  let parsed: unknown;
+  try {
+    parsed = await res.json();
+  } catch {
+    return "server_error";
+  }
+  if (
+    typeof parsed === "object" &&
+    parsed !== null &&
+    typeof (parsed as { error?: unknown }).error === "string"
+  ) {
+    return (parsed as { error: string }).error;
+  }
+  return "unknown_error";
 }
 
 /** Firebase IDトークンを Authorization ヘッダとして返す。未ログインなら 401。 */

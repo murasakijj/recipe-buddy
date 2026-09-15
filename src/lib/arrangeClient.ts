@@ -1,4 +1,4 @@
-import { authHeader, ApiError } from "./apiClient";
+import { authHeader, ApiError, readError } from "./apiClient";
 import type { ArrangedRecipe } from "./types";
 
 /** POST /api/arrange のリクエストボディ recipe 部分(docs/api.md)。 */
@@ -20,13 +20,6 @@ export interface ArrangeRequestTechnique {
   id: string;
   name: string;
   summary: string | null;
-}
-
-async function readError(res: Response): Promise<string> {
-  const body = (await res.json().catch(() => null)) as {
-    error?: string;
-  } | null;
-  return body?.error ?? "unknown_error";
 }
 
 export async function requestArrangement(
