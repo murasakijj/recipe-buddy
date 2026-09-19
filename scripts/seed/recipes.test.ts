@@ -62,8 +62,8 @@ function toRecipeInput(seed: SeedRecipe): RecipeInput {
 }
 
 describe("scripts/seed/recipes.json", () => {
-  it("13件のレシピが揃っている(09-06:6 / 09-09:4 / 09-14:3)", () => {
-    expect(recipes).toHaveLength(13);
+  it("21件のレシピが揃っている(09-06:6 / 09-09:4 / 09-14:3 / 09-15:1 / 09-16:4 / 09-17:3)", () => {
+    expect(recipes).toHaveLength(21);
   });
 
   it("importKeyが一意である", () => {

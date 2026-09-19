@@ -278,7 +278,7 @@ async function main() {
     return;
   }
 
-  // 13件 < バッチ上限500件なので、1つのbatchにまとめてアトミックに書き込む。
+  // 21件 < バッチ上限500件なので、1つのbatchにまとめてアトミックに書き込む。
   // 途中で失敗しても一部だけ書き込まれた状態にはならない。
   const batch = db.batch();
   let created = 0;

@@ -565,5 +565,365 @@
       { "instruction": "器に盛り付ける。" },
       { "instruction": "食べる直前にドレッシングをかける。" }
     ]
+  },
+  {
+    "importKey": "2026-09-15-mackerel-onion-carrot-ginger-soy",
+    "title": "鯖と玉ねぎ・人参の生姜醤油炒め",
+    "description": "ポイント:\n- 醤油は最後に入れると焦げにくい。\n- 大きい鯖は火が通りにくいため、小さい鯖より先に焼き始める。\n- 玉ねぎから水分が出るので、蒸し焼き中に多少水分が出ても問題なし。\n- タレが濃くなりすぎた場合は、水か酒を大さじ1程度加えて調整する。\n- 生姜は多めでも鯖と相性が良い。",
+    "servings": "2人分",
+    "cookingTimeMinutes": null,
+    "category": "主菜",
+    "tags": ["2026-09-15"],
+    "ingredients": [
+      {
+        "name": "冷凍鯖",
+        "quantity": "小さめ2切れ＋大きめ1切れ",
+        "unit": null,
+        "note": null
+      },
+      { "name": "玉ねぎ", "quantity": "1/2", "unit": "個", "note": null },
+      { "name": "人参", "quantity": "1/2", "unit": "本", "note": null },
+      {
+        "name": "生姜チューブ",
+        "quantity": "5〜6",
+        "unit": "cm",
+        "note": "程度"
+      },
+      { "name": "醤油", "quantity": "1.5", "unit": "大さじ", "note": null },
+      { "name": "酒", "quantity": "1.5", "unit": "大さじ", "note": null },
+      { "name": "みりん", "quantity": "1.5", "unit": "大さじ", "note": null },
+      { "name": "油", "quantity": "少量", "unit": null, "note": null }
+    ],
+    "steps": [
+      { "instruction": "【下ごしらえ】玉ねぎは薄切りにする。" },
+      { "instruction": "【下ごしらえ】人参は細切りにする。" },
+      {
+        "instruction": "【下ごしらえ】醤油・酒・みりん・生姜を混ぜて、合わせ調味料を作っておく。"
+      },
+      {
+        "instruction": "【下ごしらえ】冷凍鯖は、表面が扱える程度まで軽く解凍しておく。完全解凍でなくてもOK。"
+      },
+      { "instruction": "フライパンに油を少量ひき、中火で温める。" },
+      { "instruction": "大きめの鯖を皮目から先に入れて焼く。" },
+      { "instruction": "1〜2分後、小さめの鯖2切れも皮目から入れる。" },
+      { "instruction": "皮目に焼き色がつくまで3〜4分ほど焼く。" },
+      { "instruction": "鯖を裏返し、空いているところに玉ねぎと人参を入れる。" },
+      {
+        "instruction": "酒を少量追加してもよい。蓋をして、弱めの中火で5〜7分ほど蒸し焼きにする。"
+      },
+      { "instruction": "鯖の中心まで火が通ったら蓋を外す。" },
+      { "instruction": "合わせ調味料を加え、鯖と野菜に絡める。" },
+      { "instruction": "1〜2分ほど加熱し、タレが少し煮詰まったら完成。" }
+    ]
+  },
+  {
+    "importKey": "2026-09-16-taiwan-mince-somen",
+    "title": "台湾ミンチ風そうめん",
+    "description": "ポイント:\n- 台湾ミンチは少し濃いめの味にすると、冷たいそうめんと合わせたときにちょうど良い。\n- きゅうりは1〜2本使えるので、大量消費にも向いている。\n- 辛さは豆板醤の量で調整する。\n- ごま油は入れすぎると重くなるので、数滴〜小さじ1程度で十分。",
+    "servings": "2人分",
+    "cookingTimeMinutes": null,
+    "category": "主食",
+    "tags": ["2026-09-16"],
+    "ingredients": [
+      { "name": "そうめん", "quantity": "3〜4", "unit": "束", "note": null },
+      { "name": "ひき肉", "quantity": "200", "unit": "g", "note": null },
+      { "name": "きゅうり", "quantity": "1〜2", "unit": "本", "note": null },
+      { "name": "卵", "quantity": "2", "unit": "個", "note": null },
+      {
+        "name": "にんにく",
+        "quantity": "少量",
+        "unit": null,
+        "note": "あれば"
+      },
+      {
+        "name": "しょうゆ",
+        "quantity": "1",
+        "unit": "大さじ",
+        "note": "台湾ミンチ風の味付け"
+      },
+      {
+        "name": "みりん",
+        "quantity": "1",
+        "unit": "大さじ",
+        "note": "台湾ミンチ風の味付け"
+      },
+      {
+        "name": "酒",
+        "quantity": "1",
+        "unit": "大さじ",
+        "note": "台湾ミンチ風の味付け"
+      },
+      {
+        "name": "味噌",
+        "quantity": "1",
+        "unit": "小さじ",
+        "note": "台湾ミンチ風の味付け"
+      },
+      {
+        "name": "砂糖",
+        "quantity": "1/2",
+        "unit": "小さじ",
+        "note": "台湾ミンチ風の味付け"
+      },
+      {
+        "name": "豆板醤",
+        "quantity": "1/2〜1",
+        "unit": "小さじ",
+        "note": "台湾ミンチ風の味付け。無ければラー油や一味唐辛子でもOK"
+      },
+      {
+        "name": "めんつゆ",
+        "quantity": "適量",
+        "unit": null,
+        "note": "仕上げ"
+      },
+      { "name": "ごま油", "quantity": "少量", "unit": null, "note": "仕上げ" }
+    ],
+    "steps": [
+      {
+        "instruction": "【きゅうりを切る】きゅうりを細切りにする。たっぷり使いたい場合は2本使ってOK。"
+      },
+      {
+        "instruction": "【台湾ミンチを作る】フライパンを中火で熱し、ひき肉を炒める。"
+      },
+      {
+        "instruction": "【台湾ミンチを作る】肉の色が変わったら、にんにくを入れる。"
+      },
+      {
+        "instruction": "【味付けする】しょうゆ、みりん、酒、味噌、砂糖、豆板醤を加える。"
+      },
+      { "instruction": "【味付けする】汁気がほぼなくなるまで炒める。" },
+      {
+        "instruction": "【そうめんを茹でる】表示時間どおりに茹で、冷水でしっかり洗って冷やす。水気をよく切る。"
+      },
+      {
+        "instruction": "【盛り付ける】器にそうめんを盛り、きゅうり、台湾ミンチを乗せる。"
+      },
+      { "instruction": "【盛り付ける】卵黄、温泉卵、または半熟卵を乗せる。" },
+      {
+        "instruction": "【仕上げる】めんつゆを適量かけ、最後にごま油を少量垂らす。"
+      }
+    ]
+  },
+  {
+    "importKey": "2026-09-16-frozen-salmon-mizore-ni",
+    "title": "冷凍鮭のみぞれ煮",
+    "description": "ポイント:\n- 冷凍鮭なので片栗粉は使わない。\n- 最初は焼くよりも、蒸して解凍するイメージ。\n- 鮭が厚い場合は、加熱時間を少し延ばす。\n- 大根おろしを入れてからは煮込みすぎない。",
+    "servings": "2人分",
+    "cookingTimeMinutes": null,
+    "category": "主菜",
+    "tags": ["2026-09-16"],
+    "ingredients": [
+      { "name": "冷凍鮭", "quantity": "2", "unit": "切れ", "note": null },
+      { "name": "大根", "quantity": "5〜8", "unit": "cm", "note": "程度" },
+      { "name": "酒", "quantity": "1", "unit": "大さじ", "note": null },
+      { "name": "水", "quantity": "100", "unit": "ml", "note": "程度" },
+      { "name": "しょうゆ", "quantity": "1", "unit": "大さじ", "note": null },
+      { "name": "みりん", "quantity": "1", "unit": "大さじ", "note": null },
+      { "name": "砂糖", "quantity": "1/2〜1", "unit": "小さじ", "note": null },
+      { "name": "和風だし", "quantity": "少々", "unit": null, "note": null }
+    ],
+    "steps": [
+      { "instruction": "大根をすりおろす。水分は絞りすぎなくてOK。" },
+      { "instruction": "フライパンに冷凍鮭をそのまま入れる。" },
+      { "instruction": "水50mlと酒大さじ1を加える。" },
+      { "instruction": "蓋をして、弱めの中火で5〜7分蒸し焼きにする。" },
+      { "instruction": "鮭が解凍されてきたら裏返す。" },
+      {
+        "instruction": "水を追加し、フライパン内の水分を合計100ml程度にする。"
+      },
+      { "instruction": "しょうゆ、みりん、砂糖、和風だしを加える。" },
+      { "instruction": "再び蓋をして、弱めの中火で5〜7分煮る。" },
+      { "instruction": "鮭の中心まで火が通ったことを確認する。" },
+      { "instruction": "大根おろしを加える。" },
+      { "instruction": "蓋をせず1〜2分ほど温めて完成。" }
+    ]
+  },
+  {
+    "importKey": "2026-09-16-spinach-bacon-egg-stirfry",
+    "title": "ほうれん草・ベーコン・卵炒め",
+    "description": "ポイント:\n- ベーコンに塩気があるので、塩は最後に味見してから加える。\n- 卵は完全に固めず、少しふんわりした状態で仕上げる。",
+    "servings": "2人分",
+    "cookingTimeMinutes": null,
+    "category": "副菜",
+    "tags": ["2026-09-16"],
+    "ingredients": [
+      {
+        "name": "ほうれん草",
+        "quantity": "1/2〜1",
+        "unit": "袋",
+        "note": null
+      },
+      { "name": "ベーコン", "quantity": "3〜4", "unit": "枚", "note": null },
+      { "name": "卵", "quantity": "2", "unit": "個", "note": null },
+      { "name": "油", "quantity": "1", "unit": "小さじ", "note": null },
+      { "name": "こしょう", "quantity": "少々", "unit": null, "note": null },
+      { "name": "しょうゆ", "quantity": "1/2", "unit": "小さじ", "note": null },
+      { "name": "塩", "quantity": "少々", "unit": null, "note": "必要に応じて" }
+    ],
+    "steps": [
+      { "instruction": "ほうれん草を4〜5cm幅に切る。" },
+      { "instruction": "ベーコンを1〜2cm幅に切る。" },
+      { "instruction": "卵を溶いておく。" },
+      { "instruction": "フライパンに油を入れ、中火でベーコンを炒める。" },
+      {
+        "instruction": "ベーコンに少し焼き色がついたら、ほうれん草の茎側を加える。"
+      },
+      { "instruction": "30秒ほど炒めたら、葉も加える。" },
+      {
+        "instruction": "ほうれん草がしんなりしたら、具材をフライパンの端に寄せる。"
+      },
+      { "instruction": "空いたところに溶き卵を流し入れる。" },
+      { "instruction": "卵が半熟になったら、全体をざっくり混ぜる。" },
+      { "instruction": "こしょうとしょうゆを加える。" },
+      { "instruction": "味見し、必要であれば塩を少量加えて完成。" }
+    ]
+  },
+  {
+    "importKey": "2026-09-16-tofu-wakame-miso-soup",
+    "title": "豆腐とわかめの味噌汁",
+    "description": "ポイント:\n- 味噌を入れた後は、グツグツ沸騰させない。",
+    "servings": "2〜3人分",
+    "cookingTimeMinutes": null,
+    "category": "汁物",
+    "tags": ["2026-09-16"],
+    "ingredients": [
+      { "name": "水", "quantity": "500", "unit": "ml", "note": null },
+      { "name": "豆腐", "quantity": "150", "unit": "g", "note": "程度" },
+      {
+        "name": "乾燥わかめ",
+        "quantity": "ひとつまみ",
+        "unit": null,
+        "note": null
+      },
+      { "name": "長ネギ", "quantity": "少量", "unit": null, "note": "あれば" },
+      { "name": "和風だし", "quantity": "適量", "unit": null, "note": null },
+      { "name": "味噌", "quantity": "2", "unit": "大さじ", "note": "程度" }
+    ],
+    "steps": [
+      { "instruction": "豆腐を食べやすい大きさに切る。" },
+      { "instruction": "鍋に水500mlと和風だしを入れて中火にかける。" },
+      { "instruction": "豆腐を加える。" },
+      { "instruction": "沸騰直前になったら乾燥わかめを加える。" },
+      { "instruction": "弱火にする。" },
+      { "instruction": "味噌を溶き入れる。" },
+      { "instruction": "長ネギを使う場合は最後に加える。" },
+      { "instruction": "30秒ほど温めて完成。" }
+    ]
+  },
+  {
+    "importKey": "2026-09-17-mince-potato-pepper-amakara",
+    "title": "ひき肉とじゃがいも・ピーマンの甘辛炒め",
+    "description": "ポイント:\n- ピーマンは最後に入れると、色と食感が残りやすい。\n- じゃがいもを先にレンジ加熱しておくと時短になる。\n- ご飯にそのまま乗せて丼にしてもOK。",
+    "servings": "2人分",
+    "cookingTimeMinutes": null,
+    "category": "主菜",
+    "tags": ["2026-09-17"],
+    "ingredients": [
+      { "name": "ひき肉", "quantity": "200〜250", "unit": "g", "note": null },
+      { "name": "じゃがいも", "quantity": "2", "unit": "個", "note": null },
+      { "name": "玉ねぎ", "quantity": "1/2", "unit": "個", "note": null },
+      { "name": "ピーマン", "quantity": "2〜3", "unit": "個", "note": null },
+      { "name": "油", "quantity": "1", "unit": "小さじ", "note": "程度" },
+      { "name": "醤油", "quantity": "1", "unit": "大さじ", "note": "調味料" },
+      { "name": "みりん", "quantity": "1", "unit": "大さじ", "note": "調味料" },
+      { "name": "酒", "quantity": "1", "unit": "大さじ", "note": "調味料" },
+      { "name": "砂糖", "quantity": "1", "unit": "小さじ", "note": "調味料" }
+    ],
+    "steps": [
+      { "instruction": "じゃがいもは1.5〜2cm角程度に切る。" },
+      {
+        "instruction": "耐熱容器に入れて軽くラップし、600Wの電子レンジで3〜4分加熱する。完全に柔らかくしなくてOK。"
+      },
+      { "instruction": "玉ねぎは薄切り、ピーマンは細切りにする。" },
+      { "instruction": "フライパンに油を入れ、中火でひき肉を炒める。" },
+      { "instruction": "ひき肉の色が変わったら玉ねぎを加えて炒める。" },
+      { "instruction": "玉ねぎが少ししんなりしたら、じゃがいもを加える。" },
+      {
+        "instruction": "醤油・みりん・酒・砂糖を加え、全体に絡めながら炒める。"
+      },
+      { "instruction": "最後にピーマンを加え、2〜3分炒める。" },
+      { "instruction": "汁気が多ければ少し煮詰めて完成。" }
+    ]
+  },
+  {
+    "importKey": "2026-09-17-mizuna-daikon-salad",
+    "title": "水菜と大根のさっぱりサラダ",
+    "description": "ポイント:\n- 作ってから時間を置く場合は、ドレッシングは食べる直前に。\n- ごまドレッシングがあれば、それだけでもOK。",
+    "servings": "2人分",
+    "cookingTimeMinutes": null,
+    "category": "副菜",
+    "tags": ["2026-09-17"],
+    "ingredients": [
+      { "name": "水菜", "quantity": "適量", "unit": null, "note": null },
+      { "name": "大根", "quantity": "5〜8", "unit": "cm", "note": "程度" },
+      {
+        "name": "海苔・ごま・ツナなど",
+        "quantity": "適量",
+        "unit": null,
+        "note": "あれば"
+      },
+      {
+        "name": "醤油",
+        "quantity": "1",
+        "unit": "大さじ",
+        "note": "簡単ドレッシング"
+      },
+      {
+        "name": "酢",
+        "quantity": "1",
+        "unit": "大さじ",
+        "note": "簡単ドレッシング"
+      },
+      {
+        "name": "ごま油",
+        "quantity": "1",
+        "unit": "大さじ",
+        "note": "簡単ドレッシング"
+      }
+    ],
+    "steps": [
+      { "instruction": "大根は細切りにする。" },
+      { "instruction": "水菜は4〜5cm程度に切る。" },
+      { "instruction": "大根から水分が出ていたら、軽く水気を切る。" },
+      { "instruction": "水菜と大根を混ぜる。" },
+      { "instruction": "食べる直前にドレッシングをかける。" },
+      { "instruction": "好みで海苔やごまを散らす。" }
+    ]
+  },
+  {
+    "importKey": "2026-09-17-spinach-ohitashi",
+    "title": "ほうれん草のおひたし",
+    "description": null,
+    "servings": "2人分",
+    "cookingTimeMinutes": null,
+    "category": "副菜",
+    "tags": ["2026-09-17"],
+    "ingredients": [
+      {
+        "name": "ほうれん草",
+        "quantity": "1/2〜1",
+        "unit": "袋",
+        "note": null
+      },
+      { "name": "めんつゆ", "quantity": "適量", "unit": null, "note": null },
+      {
+        "name": "水",
+        "quantity": "適量",
+        "unit": null,
+        "note": "めんつゆの濃さに合わせて"
+      },
+      { "name": "かつお節", "quantity": "適量", "unit": null, "note": "あれば" }
+    ],
+    "steps": [
+      { "instruction": "鍋に湯を沸かす。" },
+      { "instruction": "ほうれん草を茎側から入れ、30秒ほど茹でる。" },
+      { "instruction": "葉まで全部沈め、さらに30秒〜1分ほど茹でる。" },
+      { "instruction": "冷水に取る。" },
+      { "instruction": "水気をしっかり絞る。" },
+      { "instruction": "4〜5cm程度に切る。" },
+      { "instruction": "薄めためんつゆで和える。" },
+      { "instruction": "あればかつお節を乗せる。" }
+    ]
   }
 ]
