@@ -2,10 +2,21 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import AppShell from "../components/AppShell";
 import { useRecipes } from "../contexts/useRecipes";
-import { normalizeMarkdown } from "../lib/importClient";
+import {
+  normalizeMarkdown,
+  classifyRecipes,
+  type ClassifyRecipeInput,
+} from "../lib/importClient";
 import { ApiError } from "../lib/apiClient";
 import { parseRecipeTemplate, type ParsedRecipe } from "../lib/recipeMarkdown";
+import {
+  applyMetadataToTemplate,
+  type ClassifiedMetadata,
+} from "../lib/recipeMetadataMerge";
 import { newId } from "../lib/id";
+
+/** 分類APIに1回で渡すレシピ数の上限(api/_lib/import/classify-schema.tsと同じ)。 */
+const CLASSIFY_CHUNK_SIZE = 20;
 
 const ERROR_MESSAGES: Record<string, string> = {
   invalid_body:
@@ -89,6 +100,14 @@ export default function RecipeImport() {
   const [registering, setRegistering] = useState(false);
   const [registerSummary, setRegisterSummary] = useState<string | null>(null);
 
+  // 分類(カテゴリ・タグ・人数・調理時間の推測、/api/import-classify)の状態。
+  // 整形とは別パスにしたため(docs/decisions.md「整形と分類を2パスに分けた」)、
+  // 分類だけが失敗してもレシピの取り込み自体はブロックしない。
+  const [classifying, setClassifying] = useState(false);
+  const [classifyErrorCode, setClassifyErrorCode] = useState<string | null>(
+    null,
+  );
+
   const isStale = hasParsedOnce && templateText !== lastParsedText;
 
   const selectableCount = useMemo(
@@ -130,10 +149,66 @@ export default function RecipeImport() {
     setRegisterSummary(null);
   }
 
+  /**
+   * `recipes`(ローカル解析結果)を分類APIにかけ、結果をテンプレート文字列に
+   * 書き戻してから再解析する。20件を超える場合は分割して順に呼ぶ。分類が
+   * (一部でも)失敗しても例外は投げず、失敗した分は `null`(=そのレシピは
+   * 書き換えない)として扱い、レシピの取り込み自体は止めない。
+   */
+  async function classifyAndMergeInto(
+    text: string,
+    recipes: ParsedRecipe[],
+  ): Promise<void> {
+    if (recipes.length === 0) {
+      reparse(text);
+      return;
+    }
+
+    setClassifying(true);
+    setClassifyErrorCode(null);
+    setProgress("カテゴリ・タグを判定中...");
+
+    const targets: ClassifyRecipeInput[] = recipes.map((r) => ({
+      title: r.input.title,
+      ingredients: r.input.ingredients.map((i) => i.name),
+      steps: r.input.steps.map((s) => s.instruction),
+    }));
+
+    const results: (ClassifiedMetadata | null)[] = [];
+    let lastErrorCode: string | null = null;
+    for (let i = 0; i < targets.length; i += CLASSIFY_CHUNK_SIZE) {
+      const chunk = targets.slice(i, i + CLASSIFY_CHUNK_SIZE);
+      try {
+        results.push(...(await classifyRecipes(chunk)));
+      } catch (err) {
+        console.error("[import] classify failed", err);
+        lastErrorCode = err instanceof ApiError ? err.message : "network";
+        // 失敗した分はnull(=そのレシピのメタデータは書き換えない)で埋め、
+        // 他のチャンクが成功していれば活かす。
+        results.push(...chunk.map(() => null));
+      }
+    }
+
+    setProgress(null);
+    setClassifying(false);
+    setClassifyErrorCode(lastErrorCode);
+
+    const merged = applyMetadataToTemplate(text, results);
+    setTemplateText(merged);
+    reparse(merged);
+  }
+
+  /** 「カテゴリ・タグをもう一度判定」ボタン。整形はやり直さず、現在のテキストから分類だけ再実行する。 */
+  async function handleReclassify() {
+    if (classifying || normalizing || registering) return;
+    const parsed = parseRecipeTemplate(templateText);
+    await classifyAndMergeInto(templateText, parsed.recipes);
+  }
+
   async function handleNormalize() {
     // 二重送信ガード。ArrangeInput(src/pages/ArrangeInput.tsx)と同じ流儀で、
     // awaitを挟む前に真っ先にチェック・フラグ更新する。
-    if (normalizing) return;
+    if (normalizing || classifying) return;
 
     setNormalizing(true);
     setNormalizeErrorCode(null);
@@ -215,11 +290,16 @@ export default function RecipeImport() {
     // 複数ファイル分は空行で連結して1つのテンプレートとして編集・解析できるようにする。
     const combined = succeeded.join("\n\n");
     setTemplateText(combined);
-    reparse(combined);
+    // ローカル解析 → 分類API(まとめて1回、20件超は分割) → テンプレートへ反映 →
+    // 再解析、の順で行う(docs/decisions.md「整形と分類を2パスに分けた」)。
+    // 分類が失敗してもレシピ自体は取り込めるよう、classifyAndMergeInto内で
+    // 例外を投げずreparse()まで進める。
+    const parsed = parseRecipeTemplate(combined);
+    await classifyAndMergeInto(combined, parsed.recipes);
   }
 
   function handleReparseOnly() {
-    if (normalizing || registering) return;
+    if (normalizing || registering || classifying) return;
     reparse(templateText);
   }
 
@@ -228,7 +308,7 @@ export default function RecipeImport() {
   }
 
   async function handleRegister() {
-    if (registering || isStale) return;
+    if (registering || isStale || classifying) return;
     const targets = rows.filter(
       (row) =>
         selected[row.key] &&
@@ -313,7 +393,7 @@ export default function RecipeImport() {
             rows={8}
             maxLength={MARKDOWN_MAX_LENGTH}
             placeholder="レシピメモをそのまま貼り付けてください"
-            disabled={normalizing}
+            disabled={normalizing || classifying}
           />
           <p className="char-counter">
             {pastedText.length} / {MARKDOWN_MAX_LENGTH}
@@ -328,7 +408,7 @@ export default function RecipeImport() {
             accept=".md,.markdown,text/markdown"
             multiple
             onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
-            disabled={normalizing}
+            disabled={normalizing || classifying}
           />
           {files.length > 0 && (
             <p className="import-selected-files">
@@ -354,9 +434,9 @@ export default function RecipeImport() {
             type="button"
             className="btn btn-primary"
             onClick={() => void handleNormalize()}
-            disabled={normalizing}
+            disabled={normalizing || classifying}
           >
-            {normalizing ? "整形中…" : "AIで整形して読み込む"}
+            {normalizing ? "整形中…" : classifying ? "判定中…" : "AIで整形して読み込む"}
           </button>
         </div>
       </section>
@@ -380,7 +460,7 @@ export default function RecipeImport() {
               type="button"
               className="btn"
               onClick={handleReparseOnly}
-              disabled={normalizing || registering}
+              disabled={normalizing || registering || classifying}
             >
               この内容で読み込み直す
             </button>
@@ -396,6 +476,23 @@ export default function RecipeImport() {
             <p className="notice notice-warning">
               テキストを編集しました。「この内容で読み込み直す」を押してから登録してください。
             </p>
+          )}
+
+          {classifyErrorCode && (
+            <div className="notice notice-warning" role="alert">
+              <p>
+                カテゴリ・タグの自動設定に失敗しました。レシピ自体は取り込めています。
+              </p>
+              <p>{errorMessageFor(classifyErrorCode)}</p>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => void handleReclassify()}
+                disabled={classifying || normalizing || registering}
+              >
+                {classifying ? "判定中…" : "カテゴリ・タグをもう一度判定"}
+              </button>
+            </div>
           )}
 
           {parseWarnings.length > 0 && (
@@ -483,7 +580,9 @@ export default function RecipeImport() {
               type="button"
               className="btn btn-primary"
               onClick={() => void handleRegister()}
-              disabled={registering || isStale || selectableCount === 0}
+              disabled={
+                registering || isStale || classifying || selectableCount === 0
+              }
             >
               {registering
                 ? "登録中…"

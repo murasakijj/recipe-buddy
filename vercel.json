@@ -20,6 +20,9 @@
     },
     "api/import-normalize.ts": {
       "maxDuration": 60
+    },
+    "api/import-classify.ts": {
+      "maxDuration": 60
     }
   }
 }
