@@ -62,6 +62,9 @@ export default function RecipeList() {
           <Link to="/recipes/new" className="btn btn-primary">
             新規登録
           </Link>
+          <Link to="/recipes/import" className="btn">
+            Markdownから登録
+          </Link>
         </div>
       </div>
 

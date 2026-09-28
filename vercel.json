@@ -17,6 +17,9 @@
   "functions": {
     "api/arrange.ts": {
       "maxDuration": 60
+    },
+    "api/import-normalize.ts": {
+      "maxDuration": 60
     }
   }
 }

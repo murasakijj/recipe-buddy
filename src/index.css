@@ -567,6 +567,50 @@ dialog::backdrop {
   font-weight: 600;
 }
 
+/* --- Markdownインポート --- */
+
+.import-recipe-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.import-recipe-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+}
+
+.import-recipe-row input[type="checkbox"] {
+  width: auto;
+  min-height: auto;
+  flex-shrink: 0;
+}
+
+.import-recipe-title {
+  font-weight: 700;
+}
+
+.import-recipe-warnings {
+  margin: 0.4rem 0 0;
+  padding-left: 1.25rem;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.import-recipe-registered {
+  margin: 0.4rem 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.import-selected-files {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  margin: 0.35rem 0 0;
+}
+
 /* --- 料理モード --- */
 
 .cook-mode {

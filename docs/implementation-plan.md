@@ -53,3 +53,21 @@
 
 - [ ] エラー処理の見直し（ネットワーク・Firestore 失敗時の表示）
 - [ ] README 更新、`docs/setup.md` の手順で実機確認
+
+## Phase 6: Markdown 取り込み（2026-09-28 ユーザー決定、docs/decisions.md）
+
+- [x] `api/_lib/ai.ts` に `getClient` / `getModel` / `AiProviderError` / エラー正規化を切り出し、`api/_lib/arrange/gemini.ts` から再利用（既存 import パス・テストは壊さない）
+- [x] `api/_lib/import/schema.ts`（リクエスト/レスポンスの zod スキーマ）+ テスト
+- [x] `api/_lib/import/prompt.ts`, `api/_lib/import/gemini.ts`, `api/import-normalize.ts`
+- [x] `vercel.json` に `/api/import-normalize` の関数設定を追加
+- [x] `src/lib/recipeMarkdown.ts`（正規化テンプレート → `RecipeInput[]` の決定的パーサ）+ テスト
+- [x] `src/lib/importClient.ts`（`/api/import-normalize` 呼び出し）
+- [x] `src/pages/RecipeImport.tsx`（入力 → 整形結果編集 → 一覧プレビュー・一括登録の3段構成）、ルート `/recipes/import`
+- [x] `RecipeList` に「Markdownから登録」導線を追加
+
+受け入れ:
+- 貼り付け／`.md` ファイル選択（複数可）の両方からMarkdownを入力できる
+- AI整形結果を編集して「この内容で読み込み直す」でAIを呼ばずに再解析できる
+- 1入力に複数レシピがあれば一覧＋チェックボックスで選択でき、選択分のみ登録される
+- 材料・手順が0件等の解析エラーがあるレシピはチェックできず、理由が表示される
+- `npm run build` / `npm test` / `npm run lint` が通る

@@ -1,42 +1,18 @@
-import {
-  GoogleGenAI,
-  ApiError as GenAiApiError,
-  Type,
-  type Schema,
-} from "@google/genai";
+import { Type, type Schema } from "@google/genai";
 import { ARRANGE_SYSTEM_PROMPT, buildUserMessage } from "./prompt.js";
 import type { ArrangeRequestBody } from "./schema.js";
+import {
+  getClient,
+  getModel,
+  AiProviderError,
+  toAiProviderError,
+  TIMEOUT_MS,
+} from "../ai.js";
 
-/**
- * 無料枠の対象モデル。GEMINI_MODEL 環境変数で上書き可能。
- * 2026-09-15: gemini-2.5-flash が新規ユーザー向けに提供終了したため
- * gemini-3.6-flash に変更(docs/decisions.md 参照)。
- */
-const DEFAULT_MODEL = "gemini-3.6-flash";
-/** Vercel の maxDuration(60秒)より先に自前の502を返すため、50秒で切る(docs/api.md)。 */
-const TIMEOUT_MS = 50_000;
-
-/** 各プロバイダ呼び出しが上流エラーを正規化して投げるための共通エラー型。money-lens api/_lib/ai/types.ts と同じ形。 */
-export class AiProviderError extends Error {
-  statusCode: number;
-
-  constructor(statusCode: number, message: string) {
-    super(message);
-    this.statusCode = statusCode;
-  }
-}
-
-export function getModel(): string {
-  return process.env.GEMINI_MODEL?.trim() || DEFAULT_MODEL;
-}
-
-function getClient(): GoogleGenAI {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("GEMINI_API_KEY is not set");
-  }
-  return new GoogleGenAI({ apiKey });
-}
+// getModel/AiProviderError は共通実装(api/_lib/ai.ts)に切り出し済み。
+// 既存のimportパス(api/_lib/arrange/gemini.js から import している箇所・テスト)を
+// 壊さないよう、ここから re-export しておく。
+export { getModel, AiProviderError };
 
 const ingredientSchema: Schema = {
   type: Type.OBJECT,
@@ -92,30 +68,6 @@ const RESPONSE_SCHEMA: Schema = {
   ],
 };
 
-function toAiProviderError(err: unknown): AiProviderError {
-  // APIキーやリクエスト本文は出さず、原因追跡に必要な最小限だけ記録する。
-  const e = err as { name?: unknown; status?: unknown; message?: unknown };
-  console.error("[arrange] gemini error", {
-    name: e?.name,
-    status: e?.status,
-    message: e?.message,
-  });
-
-  if (err instanceof GenAiApiError) {
-    const code = err.status === 429 ? "rate_limited" : "upstream_error";
-    return new AiProviderError(502, code);
-  }
-  // AbortSignal.timeout() による中断は環境によって AbortError/TimeoutError
-  // いずれの名前でも飛んでくるため、両方をタイムアウト扱いにする。
-  if (
-    err instanceof Error &&
-    (err.name === "AbortError" || err.name === "TimeoutError")
-  ) {
-    return new AiProviderError(502, "upstream_error");
-  }
-  return new AiProviderError(502, "upstream_error");
-}
-
 /**
  * Gemini にアレンジ生成をリクエストし、JSONとしてパースした生の値を返す。
  * スキーマ検証(zod)は呼び出し側(api/arrange.ts)の責務。
@@ -147,7 +99,7 @@ export async function generateArrangement(
       contents: [{ role: "user", parts: [{ text: userMessage }] }],
     });
   } catch (err) {
-    throw toAiProviderError(err);
+    throw toAiProviderError(err, "arrange");
   }
 
   const text = response.text;

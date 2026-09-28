@@ -13,6 +13,7 @@ import Login from "./pages/Login";
 import RecipeList from "./pages/RecipeList";
 import RecipeDetail from "./pages/RecipeDetail";
 import RecipeEdit from "./pages/RecipeEdit";
+import RecipeImport from "./pages/RecipeImport";
 import TechniqueList from "./pages/TechniqueList";
 import TechniqueEdit from "./pages/TechniqueEdit";
 import CookMode from "./pages/CookMode";
@@ -40,6 +41,7 @@ function App() {
           <Route element={<ProtectedLayout />}>
             <Route path="/" element={<RecipeList />} />
             <Route path="/recipes/new" element={<RecipeEdit />} />
+            <Route path="/recipes/import" element={<RecipeImport />} />
             <Route path="/recipes/:id" element={<RecipeDetail />} />
             <Route path="/recipes/:id/edit" element={<RecipeEdit />} />
             <Route

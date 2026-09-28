@@ -17,13 +17,13 @@
 | [docs/ui.md](../docs/ui.md) | ルートと画面仕様 |
 | [docs/setup.md](../docs/setup.md) | Firebase / Vercel の手動設定 |
 
-仕様 §15 の追加候補（Markdown インポート、人数換算、調理記録）と §5.2 の対象外機能は**実装しない**。
+仕様 §15 の追加候補のうち、Markdown インポート（`/recipes/import`）は 2026-09-28 のユーザー決定で実装済み（docs/decisions.md 参照）。**人数換算・調理記録**と §5.2 の対象外機能は引き続き**実装しない**。
 
 ## 技術スタック（確定）
 
 - React 19 + Vite + TypeScript、react-router-dom、素の CSS（モバイルファースト）
 - Firebase Authentication（Google）+ Cloud Firestore（`users/{uid}/recipes`, `users/{uid}/techniques`）
-- Vercel（静的配信 + Functions `api/`）。`/api/arrange` が Gemini `gemini-3.6-flash` を呼ぶ
+- Vercel（静的配信 + Functions `api/`）。`/api/arrange` と `/api/import-normalize` が Gemini `gemini-3.6-flash` を呼ぶ
 - zod（AI 出力・API ボディ検証）、vitest
 
 ## 絶対に守るセキュリティルール
