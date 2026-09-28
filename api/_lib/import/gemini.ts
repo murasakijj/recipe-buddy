@@ -24,6 +24,7 @@ const RESPONSE_SCHEMA: Schema = {
  */
 export async function generateNormalizedMarkdown(
   markdown: string,
+  sourceName?: string,
 ): Promise<unknown> {
   const client = getClient();
 
@@ -37,7 +38,9 @@ export async function generateNormalizedMarkdown(
         responseSchema: RESPONSE_SCHEMA,
         abortSignal: AbortSignal.timeout(TIMEOUT_MS),
       },
-      contents: [{ role: "user", parts: [{ text: buildUserMessage(markdown) }] }],
+      contents: [
+        { role: "user", parts: [{ text: buildUserMessage(markdown, sourceName) }] },
+      ],
     });
   } catch (err) {
     throw toAiProviderError(err, "import-normalize");

@@ -54,6 +54,20 @@ type MetadataField =
   | "tags"
   | "description";
 
+// AIに指示しているカテゴリの語彙(docs/decisions.md「メタデータの自動補完」)。
+// RecipeListのカテゴリ絞り込み<select>は登録済みレシピから動的生成されるため、
+// 語彙外の値が紛れ込むと表記ゆれで選択肢が断片化する。プロンプトだけでなく
+// パーサ側でも取りこぼしを検知できるようwarningを出す(再レビューM4)。
+const CATEGORY_VOCABULARY = [
+  "主菜",
+  "副菜",
+  "汁物",
+  "主食",
+  "丼",
+  "デザート",
+  "その他",
+];
+
 const METADATA_KEY_MAP: Record<string, MetadataField> = {
   カテゴリ: "category",
   人数: "servings",
@@ -460,6 +474,27 @@ function parseRecipeBlock(blockLines: string[]): ParsedRecipe {
   warnings.push(...sections.warnings);
 
   const description = combineDescriptionAndMemo(meta.description, sections.memo);
+
+  // カテゴリ・タグはAIに必ず埋めるよう指示しているが(docs/decisions.md
+  // 「Markdownインポート」)、取りこぼした場合にプレビュー画面で気づけるよう
+  // warningを出す。登録をブロックする`errors`には入れない(空のままでも
+  // 登録後の編集画面で設定できるため)。人数・調理時間は手直し時に空でも
+  // 自然なので警告は出さない。
+  if (meta.category === null) {
+    warnings.push(
+      "カテゴリが空です。登録後に編集画面で設定できます。",
+    );
+  } else if (!CATEGORY_VOCABULARY.includes(meta.category)) {
+    // タグ側(調理法の語彙)は手直し時のノイズになるためwarningを出さないが、
+    // カテゴリはRecipeListの絞り込み<select>を直接断片化させるため出す
+    // (再レビューM4)。
+    warnings.push(
+      `カテゴリが語彙外です（${CATEGORY_VOCABULARY.join("/")}）: ${meta.category}`,
+    );
+  }
+  if (meta.tags.length === 0) {
+    warnings.push("タグが空です。登録後に編集画面で設定できます。");
+  }
 
   const input: RecipeInput = {
     title,

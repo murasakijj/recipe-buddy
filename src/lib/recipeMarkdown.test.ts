@@ -281,7 +281,10 @@ describe("parseRecipeTemplate", () => {
 
   it("recipe/2026-09-20_recipe.md を手で整形したテンプレート（3レシピ）が正しく解析できる", () => {
     const md = `# 白菜と豚ロースのミルフィーユ蒸し
-- タグ: 2026-09-20
+- カテゴリ: 主菜
+- 人数: 2人分
+- 調理時間: 20
+- タグ: 2026-09-20, 白菜, 蒸し料理
 
 ## 材料
 - 白菜 | 1/4 | 株 |
@@ -307,7 +310,10 @@ describe("parseRecipeTemplate", () => {
 - 豚ロースは冷凍していたものを使用。
 
 # ブロッコリーとミニトマトのマヨサラダ
-- タグ: 2026-09-20
+- カテゴリ: 副菜
+- 人数: 1〜2人分
+- 調理時間: 10
+- タグ: 2026-09-20, ブロッコリー, サラダ
 
 ## 材料
 - ブロッコリー | 1/2 | 株 | 程度
@@ -328,7 +334,10 @@ describe("parseRecipeTemplate", () => {
 - 茎内部に空洞＋茶色い傷みが深くあったため、その部分は使用中止。
 
 # しめじと豆腐の味噌汁
-- タグ: 2026-09-20
+- カテゴリ: 汁物
+- 人数: 2人分
+- 調理時間: 10
+- タグ: 2026-09-20, しめじ, 煮物
 
 ## 材料
 - 水 | 400〜450 | ml |
@@ -350,14 +359,25 @@ describe("parseRecipeTemplate", () => {
     recipes.forEach((r) => {
       expect(r.warnings).toEqual([]);
       expect(r.errors).toEqual({});
-      expect(r.input.tags).toEqual(["2026-09-20"]);
     });
 
     expect(recipes[0].input.title).toBe("白菜と豚ロースのミルフィーユ蒸し");
+    expect(recipes[0].input.category).toBe("主菜");
+    expect(recipes[0].input.servings).toBe("2人分");
+    expect(recipes[0].input.cookingTimeMinutes).toBe(20);
+    expect(recipes[0].input.tags).toEqual(["2026-09-20", "白菜", "蒸し料理"]);
     expect(recipes[0].input.ingredients).toHaveLength(6);
     expect(recipes[0].input.steps).toHaveLength(9);
 
     expect(recipes[1].input.title).toBe("ブロッコリーとミニトマトのマヨサラダ");
+    expect(recipes[1].input.category).toBe("副菜");
+    expect(recipes[1].input.servings).toBe("1〜2人分");
+    expect(recipes[1].input.cookingTimeMinutes).toBe(10);
+    expect(recipes[1].input.tags).toEqual([
+      "2026-09-20",
+      "ブロッコリー",
+      "サラダ",
+    ]);
     expect(recipes[1].input.ingredients).toHaveLength(4);
     expect(recipes[1].input.steps).toHaveLength(6);
     expect(recipes[1].input.ingredients[0]).toMatchObject({
@@ -374,6 +394,10 @@ describe("parseRecipeTemplate", () => {
     });
 
     expect(recipes[2].input.title).toBe("しめじと豆腐の味噌汁");
+    expect(recipes[2].input.category).toBe("汁物");
+    expect(recipes[2].input.servings).toBe("2人分");
+    expect(recipes[2].input.cookingTimeMinutes).toBe(10);
+    expect(recipes[2].input.tags).toEqual(["2026-09-20", "しめじ", "煮物"]);
     expect(recipes[2].input.ingredients).toHaveLength(5);
     expect(recipes[2].input.steps).toHaveLength(5);
   });
@@ -820,5 +844,113 @@ describe("parseRecipeTemplate", () => {
     expect(
       warnings.some((w) => w.includes("材料として解釈できませんでした: **煮汁**")),
     ).toBe(true);
+  });
+
+  // --- メタデータ(カテゴリ・タグ)の推測もれをプレビューで気づけるようにする警告 ---
+
+  it("カテゴリが空のときはwarningを出す(登録はブロックしない)", () => {
+    const md = `# レシピ
+- タグ: 2026-09-27, ナス
+
+## 材料
+- 塩 | 少々 | |
+
+## 手順
+1. 味付けする。
+`;
+    const { recipes } = parseRecipeTemplate(md);
+    const { input, warnings, errors } = recipes[0];
+    expect(input.category).toBeNull();
+    expect(warnings.some((w) => w.includes("カテゴリが空です"))).toBe(true);
+    expect(errors.category).toBeUndefined();
+  });
+
+  it("タグが空のときはwarningを出す(登録はブロックしない)", () => {
+    const md = `# レシピ
+- カテゴリ: 主菜
+
+## 材料
+- 塩 | 少々 | |
+
+## 手順
+1. 味付けする。
+`;
+    const { recipes } = parseRecipeTemplate(md);
+    const { input, warnings, errors } = recipes[0];
+    expect(input.tags).toEqual([]);
+    expect(warnings.some((w) => w.includes("タグが空です"))).toBe(true);
+    expect(errors.tags).toBeUndefined();
+  });
+
+  it("カテゴリ・タグが埋まっていればそれらのwarningは出ない", () => {
+    const md = `# レシピ
+- カテゴリ: 主菜
+- タグ: 2026-09-27, ナス, 炒め物
+
+## 材料
+- 塩 | 少々 | |
+
+## 手順
+1. 味付けする。
+`;
+    const { recipes } = parseRecipeTemplate(md);
+    const { warnings } = recipes[0];
+    expect(warnings.some((w) => w.includes("カテゴリが空です"))).toBe(false);
+    expect(warnings.some((w) => w.includes("タグが空です"))).toBe(false);
+  });
+
+  it("カテゴリが7種類の語彙外のときはwarningを出す(登録はブロックしない)", () => {
+    const md = `# レシピ
+- カテゴリ: スープ
+- タグ: 2026-09-27, しめじ, 煮物
+
+## 材料
+- 塩 | 少々 | |
+
+## 手順
+1. 味付けする。
+`;
+    const { recipes } = parseRecipeTemplate(md);
+    const { input, warnings, errors } = recipes[0];
+    expect(input.category).toBe("スープ");
+    expect(
+      warnings.some((w) => w.includes("カテゴリが語彙外です") && w.includes("スープ")),
+    ).toBe(true);
+    expect(errors.category).toBeUndefined();
+  });
+
+  it("カテゴリが7種類の語彙内ならwarningを出さない", () => {
+    const md = `# レシピ
+- カテゴリ: デザート
+- タグ: 2026-09-27, りんご, 焼き物
+
+## 材料
+- 塩 | 少々 | |
+
+## 手順
+1. 味付けする。
+`;
+    const { recipes } = parseRecipeTemplate(md);
+    const { warnings } = recipes[0];
+    expect(warnings.some((w) => w.includes("語彙外"))).toBe(false);
+  });
+
+  it("人数・調理時間が空でもwarningは出さない(手直し時に空でも自然なため)", () => {
+    const md = `# レシピ
+- カテゴリ: 主菜
+- タグ: 2026-09-27, ナス, 炒め物
+
+## 材料
+- 塩 | 少々 | |
+
+## 手順
+1. 味付けする。
+`;
+    const { recipes } = parseRecipeTemplate(md);
+    const { input, warnings } = recipes[0];
+    expect(input.servings).toBeNull();
+    expect(input.cookingTimeMinutes).toBeNull();
+    // カテゴリ・タグは埋まっているため、人数・調理時間が空でも警告は一切出ない。
+    expect(warnings).toEqual([]);
   });
 });

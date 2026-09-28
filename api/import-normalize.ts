@@ -37,7 +37,10 @@ export default async function handler(
 
     let raw: unknown;
     try {
-      raw = await generateNormalizedMarkdown(parsedBody.data.markdown);
+      raw = await generateNormalizedMarkdown(
+        parsedBody.data.markdown,
+        parsedBody.data.sourceName,
+      );
     } catch (err) {
       if (err instanceof AiProviderError) {
         sendJson(res, err.statusCode, { error: err.message });

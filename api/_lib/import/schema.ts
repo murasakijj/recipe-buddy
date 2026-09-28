@@ -10,6 +10,9 @@ const MAX_MARKDOWN_LENGTH = 30_000;
 
 export const importNormalizeRequestSchema = z.object({
   markdown: z.string().min(1).max(MAX_MARKDOWN_LENGTH),
+  // ファイル選択時のファイル名。本文に日付が無い場合のタグ用日付フォールバックに
+  // 使う(docs/decisions.md「Markdownインポート」)。貼り付けテキストのときは省略する。
+  sourceName: z.string().max(200).optional(),
 });
 
 export type ImportNormalizeRequestBody = z.infer<

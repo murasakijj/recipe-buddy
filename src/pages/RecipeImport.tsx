@@ -138,7 +138,9 @@ export default function RecipeImport() {
     setFailedSources([]);
     setProgress(null);
 
-    const sources: { label: string; text: string }[] = [];
+    // sourceNameはファイル名のときだけ渡す(貼り付けテキストは日付タグの
+    // フォールバックに使えるファイル名を持たないため。再レビューM2)。
+    const sources: { label: string; text: string; sourceName?: string }[] = [];
     const pasted = pastedText.trim();
     if (pasted.length > 0) {
       sources.push({ label: "貼り付けテキスト", text: pasted });
@@ -157,7 +159,7 @@ export default function RecipeImport() {
           );
           continue;
         }
-        sources.push({ label: file.name, text });
+        sources.push({ label: file.name, text, sourceName: file.name });
       } catch (err) {
         console.error("[import] file read failed", file.name, err);
         fileReadFailures.push(file.name);
@@ -186,7 +188,9 @@ export default function RecipeImport() {
         `${sources.length}件中${i + 1}件目を整形中...（${sources[i].label}）`,
       );
       try {
-        succeeded.push(await normalizeMarkdown(sources[i].text));
+        succeeded.push(
+          await normalizeMarkdown(sources[i].text, sources[i].sourceName),
+        );
       } catch (err) {
         console.error("[import] normalize failed", sources[i].label, err);
         failed.push(sources[i].label);
@@ -295,6 +299,9 @@ export default function RecipeImport() {
 
       <section className="form">
         <h2>1. 入力</h2>
+        <p className="notice">
+          1日分のレシピメモ（材料と作り方が書かれたもの）を渡してください。料理の索引や献立一覧のような表は解析できません。
+        </p>
         <div className="form-field">
           <label htmlFor="import-paste">テキストを貼り付け</label>
           <textarea
