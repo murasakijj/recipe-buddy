@@ -4,7 +4,7 @@ import {
   getClient,
   getModel,
   AiProviderError,
-  toAiProviderError,
+  callGeminiWithRetry,
   TIMEOUT_MS,
 } from "../ai.js";
 
@@ -20,7 +20,9 @@ const RESPONSE_SCHEMA: Schema = {
 /**
  * Gemini に Markdown の正規化(整形)をリクエストし、JSONとしてパースした生の値を返す。
  * スキーマ検証(zod)は呼び出し側(api/import-normalize.ts)の責務。
- * タイムアウト・クライアント生成・エラー正規化は api/_lib/arrange/gemini.ts と共通(api/_lib/ai.ts)。
+ * タイムアウト・クライアント生成・エラー正規化・リトライは api/_lib/arrange/gemini.ts
+ * と共通(api/_lib/ai.ts)。429/503は最大3回まで自動でリトライする
+ * (docs/decisions.md 2026-09-28)。
  */
 export async function generateNormalizedMarkdown(
   markdown: string,
@@ -28,23 +30,22 @@ export async function generateNormalizedMarkdown(
 ): Promise<unknown> {
   const client = getClient();
 
-  let response;
-  try {
-    response = await client.models.generateContent({
-      model: getModel(),
-      config: {
-        systemInstruction: IMPORT_NORMALIZE_SYSTEM_PROMPT,
-        responseMimeType: "application/json",
-        responseSchema: RESPONSE_SCHEMA,
-        abortSignal: AbortSignal.timeout(TIMEOUT_MS),
-      },
-      contents: [
-        { role: "user", parts: [{ text: buildUserMessage(markdown, sourceName) }] },
-      ],
-    });
-  } catch (err) {
-    throw toAiProviderError(err, "import-normalize");
-  }
+  const response = await callGeminiWithRetry(
+    (signal) =>
+      client.models.generateContent({
+        model: getModel(),
+        config: {
+          systemInstruction: IMPORT_NORMALIZE_SYSTEM_PROMPT,
+          responseMimeType: "application/json",
+          responseSchema: RESPONSE_SCHEMA,
+          abortSignal: signal,
+        },
+        contents: [
+          { role: "user", parts: [{ text: buildUserMessage(markdown, sourceName) }] },
+        ],
+      }),
+    { logTag: "import-normalize", deadlineMs: TIMEOUT_MS },
+  );
 
   const text = response.text;
   if (!text) {

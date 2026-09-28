@@ -63,7 +63,7 @@
 
 - `steps[].instruction` は `[[techniqueId|語句]]` 記法を含んでよい。**サーバー側で、`techniques` に無い ID の参照は語句だけを残して除去する**（AI が実在しない ID を作らないように）。
 - `questions` が空でなくても生成結果は返す（decisions.md「注意付きで生成」）。
-- エラー: `502 {error:"upstream_error"|"rate_limited"|"invalid_ai_output"}`。`invalid_ai_output` は AI の JSON がスキーマに合わなかった場合。フロントは再試行を促し、入力は保持する（FR-09 / §11.4）。
+- エラー: `502 {error:"upstream_error"|"rate_limited"|"overloaded"|"invalid_ai_output"}`。`invalid_ai_output` は AI の JSON がスキーマに合わなかった場合。`overloaded`（Geminiモデルの一時的な過負荷、下記「Gemini呼び出し」「共通」参照）はリトライ後もダメだった場合に返る。フロントは再試行を促し、入力は保持する（FR-09 / §11.4）。
 
 ### Gemini 呼び出し
 
@@ -71,7 +71,7 @@
 - モデルは `GEMINI_MODEL`（既定 `gemini-3.6-flash`）。
 - `responseSchema` は上記レスポンス形に対応させる（`ingredients[]`, `steps[]`, `changeSummary[]`, `safetyNotes[]`, `questions[]`, `newTechniqueCandidates[]`）。
 - 返ってきた JSON を zod で再検証してから返す（二重防御）。
-- AI 呼び出しのタイムアウトは 50 秒（Vercel の `maxDuration` 60 秒より先に自前の 502 を返す）。`maxDuration` は 60 に設定（`vercel.json` の `functions` または `export const config`）。
+- AI 呼び出しのタイムアウトは 50 秒（Vercel の `maxDuration` 60 秒より先に自前の 502 を返す）。`maxDuration` は 60 に設定（`vercel.json` の `functions` または `export const config`）。この50秒はリトライ込みの呼び出し全体のデッドライン（下記「共通」参照）。
 
 ### システムプロンプト（`api/_lib/arrange/prompt.ts` に定数化）
 
@@ -120,7 +120,7 @@
 
 - `markdown` は下記「正規化テンプレート」の形式のみ。前置き・後置きの説明やコードフェンスは含まない。
 - `markdown` が空文字（AIが実質的に何も返さなかった場合）は `502 {error:"invalid_ai_output"}` として扱う（`importNormalizeResponseSchema` が `min(1)` で弾く）。
-- エラー: `502 {error:"upstream_error"|"rate_limited"|"invalid_ai_output"}`。フロントは整形結果のテキストエリアを（空でも）表示したまま残し、手直し・再試行を促す。
+- エラー: `502 {error:"upstream_error"|"rate_limited"|"overloaded"|"invalid_ai_output"}`。`overloaded`（Geminiモデルの一時的な過負荷）はリトライ後もダメだった場合に返る（下記「共通」参照）。フロントは整形結果のテキストエリアを（空でも）表示したまま残し、手直し・再試行を促す。
 
 ### 正規化テンプレート
 
@@ -230,10 +230,23 @@ AIの整形結果やユーザーの手直しに多少のゆれがあっても情
 ### Gemini 呼び出し
 
 - `responseMimeType = "application/json"`、`responseSchema` は `{ markdown: string }` のみ。
-- モデル・タイムアウト（50秒）・`maxDuration`（60、`vercel.json`）は `/api/arrange` と共通の設定を使う。
-- 共通処理（`getClient` / `getModel` / `AiProviderError` / エラー正規化）は `api/_lib/ai.ts` に切り出し、`arrange` と `import` の両方から使う。
+- モデル・タイムアウト（50秒）・`maxDuration`（60、`vercel.json`）・リトライは `/api/arrange` と共通の設定を使う。
+- 共通処理（`getClient` / `getModel` / `AiProviderError` / エラー正規化 / リトライ）は `api/_lib/ai.ts` に切り出し、`arrange` と `import` の両方から使う。
 
 ## 共通
 
 - `api/_lib/types.ts` の `ApiRequest` / `ApiResponse` を使う（money-lens と同じ最小型）。
 - エラー応答に内部情報（トークン、スタック）を含めない。
+
+### Gemini呼び出しのリトライ方針（2026-09-28、api/_lib/ai.ts）
+
+本番で Gemini から `503`（"This model is currently experiencing high demand" 等、モデル側の一時的な過負荷）が返るようになったことを受けて追加。`callGeminiWithRetry` が `arrange`・`import-normalize` の両方の `generateContent` 呼び出しをラップする。
+
+- リトライ対象は **429（レート制限）と503（過負荷）のみ**。400系やそれ以外の5xx、タイムアウト（`AbortError`/`TimeoutError`）、`invalid_ai_output`（JSONパース失敗・スキーマ不一致）はリトライしない（再試行しても直らないため。タイムアウトについては下記のデッドライン強制とあわせて参照）。
+- 最大3回試行（初回＋リトライ2回）。バックオフは1回目のリトライ前が1秒、2回目のリトライ前が3秒（それぞれ0〜300msのジッターを加える）。
+- `TIMEOUT_MS`（50秒）は**Gemini呼び出し区間（初回＋リトライ＋バックオフの待機）だけのデッドライン**であり、Vercel Function呼び出し全体（コールドスタート、`requireAuth`の`verifyIdToken`、レスポンス送信を含む）のデッドラインではない。`maxDuration`（60秒）までの残り約10秒はこれらの前後処理の余裕分。各試行の`AbortSignal`には、呼び出し開始時刻からの残り時間を渡す。リトライ直前の残り時間が**12秒未満なら、リトライせずそのままエラーを返す**（次の試行がタイムアウトで終わるだけになるのを避けるため）。
+  - `AbortSignal`はSDK側の協力が前提の仕組みであり、SDKが無視する・中断が遅れるとデッドラインの歯止めが無くなる（2026-09-28 レビューのシミュレーションで最大77秒＝Vercelの`FUNCTION_INVOCATION_TIMEOUT`(60秒)超過を確認）。そのため`callGeminiWithRetry`は各試行を、同じ残り時間で強制的に失敗させる`Promise.race`の競走タイマー（`raceWithDeadline`）とも競わせ、SDKの挙動に依らずデッドラインを保証する。
+- リトライを行ったことは `[<logTag>] gemini retry <試行番号>/2 after <ステータス>` の形でログに残す。APIキーやリクエスト本文はログに出さない。
+- エラーコードは `429`→`rate_limited`、`503`→`overloaded`、それ以外→`upstream_error`。`overloaded`は「接続はできているがモデル側が混雑している」状態であり、`upstream_error`（接続できない）と文言を分ける（フロント側の案内文は `src/pages/ArrangeInput.tsx` / `src/pages/RecipeImport.tsx` の `ERROR_MESSAGES`）。分類は`instanceof`ではなくエラーオブジェクトの`status`（duck-typing）で判定し、リトライ可否の判定と基準を一本化している。また、直前の試行で429/503を観測していた場合、その次のリトライがデッドラインで打ち切られて`AbortError`/`TimeoutError`になっても、`upstream_error`ではなく観測していたステータスの分類（`overloaded`/`rate_limited`）を優先する（過負荷の実態が「接続できない」という誤った文言に落ちないようにするため）。
+- `rate_limited`（利用量側の問題）と`overloaded`（モデル側の混雑）は文言を明確に書き分ける（「AIの利用上限に達した可能性があります」/「AIが混み合っています」）。
+- リトライ対象は429/503のみで、500/502/504等は対象外（実運用でこれらが頻発するようなら追加を検討する）。

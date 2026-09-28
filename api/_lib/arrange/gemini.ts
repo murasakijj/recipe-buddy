@@ -5,7 +5,7 @@ import {
   getClient,
   getModel,
   AiProviderError,
-  toAiProviderError,
+  callGeminiWithRetry,
   TIMEOUT_MS,
 } from "../ai.js";
 
@@ -74,7 +74,8 @@ const RESPONSE_SCHEMA: Schema = {
  *
  * タイムアウトは AbortSignal.timeout() に一本化する(Node 18+ で利用可能。
  * このプロジェクトは Node 24 を対象とするため、Promise.race によるフォール
- * バックは持たない)。
+ * バックは持たない)。429/503は `callGeminiWithRetry` が最大3回まで自動で
+ * リトライする(docs/decisions.md 2026-09-28、api/_lib/ai.ts参照)。
  */
 export async function generateArrangement(
   input: ArrangeRequestBody,
@@ -86,21 +87,20 @@ export async function generateArrangement(
     input.request,
   );
 
-  let response;
-  try {
-    response = await client.models.generateContent({
-      model: getModel(),
-      config: {
-        systemInstruction: ARRANGE_SYSTEM_PROMPT,
-        responseMimeType: "application/json",
-        responseSchema: RESPONSE_SCHEMA,
-        abortSignal: AbortSignal.timeout(TIMEOUT_MS),
-      },
-      contents: [{ role: "user", parts: [{ text: userMessage }] }],
-    });
-  } catch (err) {
-    throw toAiProviderError(err, "arrange");
-  }
+  const response = await callGeminiWithRetry(
+    (signal) =>
+      client.models.generateContent({
+        model: getModel(),
+        config: {
+          systemInstruction: ARRANGE_SYSTEM_PROMPT,
+          responseMimeType: "application/json",
+          responseSchema: RESPONSE_SCHEMA,
+          abortSignal: signal,
+        },
+        contents: [{ role: "user", parts: [{ text: userMessage }] }],
+      }),
+    { logTag: "arrange", deadlineMs: TIMEOUT_MS },
+  );
 
   const text = response.text;
   if (!text) {

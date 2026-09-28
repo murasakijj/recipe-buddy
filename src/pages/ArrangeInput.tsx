@@ -12,7 +12,9 @@ const ERROR_MESSAGES: Record<string, string> = {
   empty_request: "今日の状況を入力してください。",
   invalid_body: "入力内容を確認してください。",
   rate_limited:
-    "リクエストが混み合っています。しばらくしてから再試行してください。",
+    "AIの利用上限に達した可能性があります。しばらくしてから再試行してください。",
+  overloaded:
+    "AIが混み合っています。1〜2分おいてから再試行してください。",
   invalid_ai_output:
     "AIの応答を処理できませんでした。もう一度試すか、内容を変えて再試行してください。",
   upstream_error:
