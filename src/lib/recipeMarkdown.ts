@@ -9,6 +9,15 @@
  * この解析器は与えられたテンプレート文字列を最大限解釈し、想定外の行があっても
  * 例外を投げずwarningsに積んで処理を続ける(黙って情報を落とさない)。
  * 寛容に解釈する規則の一覧は docs/api.md「パーサの寛容な解釈規則」を参照。
+ *
+ * `normalizeLineEndings` / `unwrapOuterFence` / `computeFenceMask` と
+ * `RECIPE_TITLE_RE` / `SECTION_HEADING_RE` / `METADATA_LINE_RE` は export して
+ * `src/lib/recipeMetadataMerge.ts` からも使う(2026-09-29 再レビューA3)。
+ * 以前は `recipeMetadataMerge.ts` がこの前処理ロジックを複製しており、
+ * 出力全体がコードフェンスで包まれたときの「外側フェンスを外す」処理が
+ * 複製側に無かったため、mergeが全行を「フェンス内」と誤判定してno-opになる
+ * (分類結果が無言で反映されない)バグがあった。判定ロジックを一本化することで
+ * 再発しない形にする。
  */
 import { newId } from "./id";
 import { validateRecipeInput, type ValidationErrors } from "./recipeValidation";
@@ -28,12 +37,12 @@ export interface ParseRecipeTemplateResult {
 
 // レシピ境界: "#" ひとつ + 空白 + 本文。"##" 以降とは区別する
 // ("#" の直後に空白以外の "#" が続く行にはマッチしない)。
-const RECIPE_TITLE_RE = /^#\s+(.+?)\s*$/;
-const SECTION_HEADING_RE = /^##\s+(.+?)\s*$/;
+export const RECIPE_TITLE_RE = /^#\s+(.+?)\s*$/;
+export const SECTION_HEADING_RE = /^##\s+(.+?)\s*$/;
 // "## 材料"/"## 手順"/"## メモ" として認識されなかった、"#"始まりの行
 // (例: "### 仕上げ"、空白の無い"###仕上げ"/"#仕上げ")を広く検出する。
 const HEADING_LIKE_RE = /^#+/;
-const METADATA_LINE_RE = /^-\s*(.+?)\s*[:：]\s*(.*)$/;
+export const METADATA_LINE_RE = /^-\s*(.+?)\s*[:：]\s*(.*)$/;
 // 材料の箇条書き記号は "-" / "*" / "・" を受け、記号直後の空白は省略可にする
 // ("-塩 | ..." のような表記ゆれも黙って落とさず拾う)。
 const INGREDIENT_BULLET_RE = /^[-*・]\s*(.*)$/;
@@ -43,9 +52,6 @@ const INGREDIENT_BULLET_RE = /^[-*・]\s*(.*)$/;
 // 手順番号ではないので、否定先読みでマッチさせない(再レビューR1)。
 const NUMBERED_STEP_RE = /^[0-9０-９]+[.)。](?![0-9０-９])(\s*)(.*)$/;
 const BULLET_STEP_RE = /^-\s+(.*)$/;
-// コードフェンス(```)ブロックをまとめて1行に潰すときの目印。実際のMarkdown
-// 本文には出現しない制御文字を使い、他の正規表現と衝突しないようにする。
-const FENCE_SENTINEL = "\u0000FENCE\u0000";
 
 type MetadataField =
   | "category"
@@ -79,7 +85,7 @@ const METADATA_KEY_MAP: Record<string, MetadataField> = {
 };
 
 /** CRLF/CR を LF に統一し、先頭のBOMを取り除く。 */
-function normalizeLineEndings(markdown: string): string {
+export function normalizeLineEndings(markdown: string): string {
   let text = markdown;
   if (text.charCodeAt(0) === 0xfeff) {
     text = text.slice(1);
@@ -92,12 +98,11 @@ function normalizeLineEndings(markdown: string): string {
  * ```` ```markdown 本文``` ```` のように出力する典型的な失敗モード)、
  * 外側のフェンスの開始・終了行だけを取り除いて中身を返す(再レビューR3)。
  * 内側にさらにフェンスが含まれる場合(=単純な1枚包みではない)は対象外とし、
- * 何もしない。
+ * 何もしない。戻り値は元の行の内容を一切変更しない、連続した部分配列
+ * (`lines.slice`)なので、これを使う側は行の中身をそのまま再利用できる
+ * (recipeMetadataMerge.ts はこれを使って出力テキストを組み立てる)。
  */
-function unwrapOuterFence(
-  lines: string[],
-  warnings: string[],
-): string[] {
+export function unwrapOuterFence(lines: string[], warnings: string[]): string[] {
   let start = 0;
   while (start < lines.length && lines[start].trim().length === 0) start++;
   let end = lines.length - 1;
@@ -120,20 +125,22 @@ function unwrapOuterFence(
 }
 
 /**
- * コードフェンス(```で始まる行)の開始〜終了(または入力末尾)までを、
- * まとめて1行の目印(`FENCE_SENTINEL`)に置き換える。
- *
- * レシピ境界("# ")やセクション見出し("## ")の判定は行配列全体を走査するため、
- * フェンスの中身に "#" で始まる行が含まれていても新しいレシピ/セクションの
- * 開始と誤認しないよう、他の解析より前にこの前処理を行う。
- * フェンスに関するwarningはすべてここで(グローバルに)積む。
+ * 各行がコードフェンス(```)の内側(フェンスの開始・終了行自体を含む)かどうかを
+ * 示すマスクを返す(非破壊)。`src/lib/recipeMarkdown.ts` と
+ * `src/lib/recipeMetadataMerge.ts` の両方がこれを使う(再レビューA3で共通化)。
+ * - パーサは、このマスクで「フェンス内なので無視する行」を判定する
+ *   (フェンスの中身を書き換え後のテキストへ戻す必要が無いため)。
+ * - mergeは、同じマスクで「書き換えてよい行」を判定しつつ、フェンスの中身を
+ *   一切書き換えずにそのまま出力テキストへ残す(非破壊である必要があるため)。
+ * 閉じフェンスが無い場合・正常に閉じた場合、それぞれ1フェンスにつき1件
+ * warningを出す(黙って無視しない)。
  */
-function stripFencedBlocks(lines: string[], warnings: string[]): string[] {
-  const result: string[] = [];
+export function computeFenceMask(lines: string[], warnings: string[]): boolean[] {
+  const mask: boolean[] = new Array(lines.length).fill(false);
   let i = 0;
   while (i < lines.length) {
     if (lines[i].trim().startsWith("```")) {
-      result.push(FENCE_SENTINEL);
+      const start = i;
       i++;
       let closed = false;
       while (i < lines.length) {
@@ -143,20 +150,19 @@ function stripFencedBlocks(lines: string[], warnings: string[]): string[] {
         }
         i++;
       }
-      if (closed) {
-        warnings.push("コードフェンスを無視しました。");
-        i++; // 閉じフェンス行を読み飛ばす
-      } else {
-        warnings.push(
-          "閉じフェンスが見つかりませんでした。以降を無視しました。",
-        );
-      }
+      const end = closed ? i : lines.length - 1;
+      for (let k = start; k <= end; k++) mask[k] = true;
+      warnings.push(
+        closed
+          ? "コードフェンスを無視しました。"
+          : "閉じフェンスが見つかりませんでした。以降を無視しました。",
+      );
+      if (closed) i++; // 閉じフェンス行を読み飛ばす
       continue;
     }
-    result.push(lines[i]);
     i++;
   }
-  return result;
+  return mask;
 }
 
 function normalizeField(value: string | undefined): string | null {
@@ -173,7 +179,14 @@ interface ParsedMetadata {
   description: string | null;
 }
 
-function parseMetadata(lines: string[], warnings: string[]): ParsedMetadata {
+/** `lines[start, end)` のうち `fenceMask` が立っていない行だけをメタデータ行として解釈する。 */
+function parseMetadata(
+  lines: string[],
+  fenceMask: boolean[],
+  start: number,
+  end: number,
+  warnings: string[],
+): ParsedMetadata {
   const meta: ParsedMetadata = {
     category: null,
     servings: null,
@@ -183,11 +196,10 @@ function parseMetadata(lines: string[], warnings: string[]): ParsedMetadata {
   };
   const seenFields = new Set<MetadataField>();
 
-  for (const raw of lines) {
-    const line = raw.trim();
+  for (let i = start; i < end; i++) {
+    if (fenceMask[i]) continue;
+    const line = lines[i].trim();
     if (line.length === 0) continue;
-    // フェンスに関するwarningはstripFencedBlocks()でグローバルに積み済み。
-    if (line === FENCE_SENTINEL) continue;
 
     const match = line.match(METADATA_LINE_RE);
     if (!match) {
@@ -383,7 +395,13 @@ interface ParsedSections {
   warnings: string[];
 }
 
-function parseSections(lines: string[]): ParsedSections {
+/** `lines[start, end)` のうち `fenceMask` が立っていない行だけをセクション本文として解釈する。 */
+function parseSections(
+  lines: string[],
+  fenceMask: boolean[],
+  start: number,
+  end: number,
+): ParsedSections {
   const warnings: string[] = [];
   const ingredients: IngredientInput[] = [];
   const steps: StepInput[] = [];
@@ -391,12 +409,13 @@ function parseSections(lines: string[]): ParsedSections {
   let current: SectionType | null = null;
   let currentStepIndex = -1;
 
-  for (const raw of lines) {
-    const trimmed = raw.trim();
+  for (let i = start; i < end; i++) {
+    // コードフェンスの中身は、材料・手順どのセクションに属していても
+    // 本文として取り込まない。warningは computeFenceMask がグローバルに積み済み。
+    if (fenceMask[i]) continue;
 
-    // コードフェンスは stripFencedBlocks() で1行のセンチネルに潰し、
-    // warningもそこでグローバルに積み済み。ここでは黙ってスキップする。
-    if (trimmed === FENCE_SENTINEL) continue;
+    const raw = lines[i];
+    const trimmed = raw.trim();
 
     const headingMatch = raw.match(SECTION_HEADING_RE);
     if (headingMatch) {
@@ -455,22 +474,29 @@ function combineDescriptionAndMemo(
   return null;
 }
 
-function parseRecipeBlock(blockLines: string[]): ParsedRecipe {
+/** `lines[startIdx, endIdx)` の1レシピ分の範囲を解析する。 */
+function parseRecipeBlock(
+  lines: string[],
+  fenceMask: boolean[],
+  startIdx: number,
+  endIdx: number,
+): ParsedRecipe {
   const warnings: string[] = [];
 
-  const titleMatch = blockLines[0].match(RECIPE_TITLE_RE);
+  const titleMatch = lines[startIdx].match(RECIPE_TITLE_RE);
   const title = titleMatch ? titleMatch[1] : "";
 
-  let firstSectionIdx = blockLines.findIndex(
-    (l, idx) => idx > 0 && SECTION_HEADING_RE.test(l),
-  );
-  if (firstSectionIdx === -1) firstSectionIdx = blockLines.length;
+  let firstSectionIdx = endIdx;
+  for (let i = startIdx + 1; i < endIdx; i++) {
+    if (!fenceMask[i] && SECTION_HEADING_RE.test(lines[i])) {
+      firstSectionIdx = i;
+      break;
+    }
+  }
 
-  const metaLines = blockLines.slice(1, firstSectionIdx);
-  const meta = parseMetadata(metaLines, warnings);
+  const meta = parseMetadata(lines, fenceMask, startIdx + 1, firstSectionIdx, warnings);
 
-  const sectionLines = blockLines.slice(firstSectionIdx);
-  const sections = parseSections(sectionLines);
+  const sections = parseSections(lines, fenceMask, firstSectionIdx, endIdx);
   warnings.push(...sections.warnings);
 
   const description = combineDescriptionAndMemo(meta.description, sections.memo);
@@ -528,14 +554,14 @@ export function parseRecipeTemplate(markdown: string): ParseRecipeTemplateResult
 
   // 出力全体が1枚のコードフェンスで包まれている場合(AIの典型的な失敗モード)は、
   // 外側のフェンスだけ外してから処理する(再レビューR3)。
-  const unwrapped = unwrapOuterFence(normalized.split("\n"), globalWarnings);
+  const lines = unwrapOuterFence(normalized.split("\n"), globalWarnings);
   // フェンス内に "#" 始まりの行が含まれていても新しいレシピ/セクションの
-  // 開始と誤認しないよう、行分割の直後に処理しておく。
-  const lines = stripFencedBlocks(unwrapped, globalWarnings);
+  // 開始と誤認しないよう、行分割の直後に判定しておく(非破壊マスク)。
+  const fenceMask = computeFenceMask(lines, globalWarnings);
 
   const titleIndices: number[] = [];
   lines.forEach((line, i) => {
-    if (RECIPE_TITLE_RE.test(line)) titleIndices.push(i);
+    if (!fenceMask[i] && RECIPE_TITLE_RE.test(line)) titleIndices.push(i);
   });
 
   if (titleIndices.length === 0) {
@@ -563,7 +589,7 @@ export function parseRecipeTemplate(markdown: string): ParseRecipeTemplateResult
   const recipes = titleIndices.map((startIdx, i) => {
     const endIdx =
       i + 1 < titleIndices.length ? titleIndices[i + 1] : lines.length;
-    return parseRecipeBlock(lines.slice(startIdx, endIdx));
+    return parseRecipeBlock(lines, fenceMask, startIdx, endIdx);
   });
 
   return { recipes, warnings: globalWarnings };

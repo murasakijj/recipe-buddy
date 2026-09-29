@@ -3,6 +3,7 @@ import {
   applyMetadataToTemplate,
   type ClassifiedMetadata,
 } from "./recipeMetadataMerge";
+import { parseRecipeTemplate } from "./recipeMarkdown";
 
 function meta(overrides: Partial<ClassifiedMetadata> = {}): ClassifiedMetadata {
   return {
@@ -190,5 +191,223 @@ describe("applyMetadataToTemplate", () => {
     // フェンス内・メモ欄の行はそのまま残る(書き換えられない)。
     expect(result).toContain("- カテゴリ: フェンス内は無視");
     expect(result).toContain("- カテゴリ: メモ欄も無視");
+  });
+
+  // --- 再レビューで見つかった回帰の修正確認テスト ---
+
+  it("A3: 出力全体がコードフェンスで包まれていても、外側のフェンスを外して分類結果を反映する(no-opにならない)", () => {
+    const template =
+      "```markdown\n" +
+      `# レシピA
+- カテゴリ:
+
+## 材料
+- 塩 | 少々 | |
+
+## 手順
+1. 味付けする。
+
+# レシピB
+- カテゴリ:
+
+## 材料
+- 砂糖 | 少々 | |
+
+## 手順
+1. 甘くする。
+` +
+      "```\n";
+
+    const result = applyMetadataToTemplate(template, [
+      meta({ category: "主菜" }),
+      meta({ category: "副菜" }),
+    ]);
+
+    // 以前は全行が「フェンス内」と誤判定され、no-opになって
+    // カテゴリが埋まらなかった(2026-09-29 再レビューA3)。
+    expect(result).toContain("- カテゴリ: 主菜");
+    expect(result).toContain("- カテゴリ: 副菜");
+  });
+
+  it("B1: 重複したメタデータキーは後勝ち(パーサと同じ意味論)で、既存値ありとして扱う", () => {
+    const template = `# レシピ
+- カテゴリ: 主菜
+- カテゴリ: 副菜
+
+## 材料
+- 塩 | 少々 | |
+
+## 手順
+1. 味付けする。
+`;
+    const result = applyMetadataToTemplate(template, [meta({ category: "主食" })]);
+
+    // 後勝ちの"副菜"が既存値として扱われ、AIの"主食"では上書きされない。
+    expect(result).toContain("- カテゴリ: 主菜");
+    expect(result).toContain("- カテゴリ: 副菜");
+    expect(result).not.toContain("- カテゴリ: 主食");
+  });
+
+  it("複数レシピで、それぞれが対応する正しいmetadata要素の内容を受け取る(取り違えない)", () => {
+    const template = `# レシピA
+
+## 材料
+- 塩 | 少々 | |
+
+## 手順
+1. 味付けする。
+
+# レシピB
+
+## 材料
+- 砂糖 | 少々 | |
+
+## 手順
+1. 甘くする。
+
+# レシピC
+
+## 材料
+- 酢 | 少々 | |
+
+## 手順
+1. 酸っぱくする。
+`;
+    const result = applyMetadataToTemplate(template, [
+      meta({ category: "主菜", tags: ["タグA"] }),
+      meta({ category: "副菜", tags: ["タグB"] }),
+      meta({ category: "デザート", tags: ["タグC"] }),
+    ]);
+
+    const blockA = result.split("# レシピB")[0];
+    const blockB = result.split("# レシピB")[1].split("# レシピC")[0];
+    const blockC = result.split("# レシピC")[1];
+
+    expect(blockA).toContain("- カテゴリ: 主菜");
+    expect(blockA).toContain("- タグ: タグA");
+    expect(blockB).toContain("- カテゴリ: 副菜");
+    expect(blockB).toContain("- タグ: タグB");
+    expect(blockC).toContain("- カテゴリ: デザート");
+    expect(blockC).toContain("- タグ: タグC");
+  });
+
+  it("0件のmetadata・空文字テンプレートでも例外を投げない", () => {
+    expect(() => applyMetadataToTemplate("", [])).not.toThrow();
+    expect(applyMetadataToTemplate("", [])).toBe("");
+
+    const template = `# レシピ
+
+## 材料
+- 塩 | 少々 | |
+
+## 手順
+1. 味付けする。
+`;
+    expect(() => applyMetadataToTemplate(template, [])).not.toThrow();
+    // metadataが空配列(=対応するインデックスが無い)なので変化しない。
+    expect(applyMetadataToTemplate(template, [])).toBe(template.replace(/\r\n/g, "\n"));
+  });
+
+  it("全角コロン(「- カテゴリ：」)のメタデータ行も認識し、既存値があれば上書きしない", () => {
+    const template = `# レシピ
+- カテゴリ：副菜
+
+## 材料
+- 塩 | 少々 | |
+
+## 手順
+1. 味付けする。
+`;
+    const result = applyMetadataToTemplate(template, [meta({ category: "主食" })]);
+    expect(result).toContain("- カテゴリ：副菜");
+    expect(result).not.toContain("主食");
+  });
+
+  it("全角コロンで値が空の行も、半角コロンと同様に埋まる(書き込み時は半角コロンに統一される)", () => {
+    const template = `# レシピ
+- カテゴリ：
+
+## 材料
+- 塩 | 少々 | |
+
+## 手順
+1. 味付けする。
+`;
+    const result = applyMetadataToTemplate(template, [meta({ category: "主食" })]);
+    // 空欄だったので埋まる。書き込むときの表記は(既存の全角コロンではなく)
+    // buildLineが常に使う半角コロンの形式に統一される。
+    expect(result).toContain("- カテゴリ: 主食");
+    expect(result).not.toContain("- カテゴリ：");
+  });
+
+  it("タグが既に上限(5個)まで埋まっていると、新しいタグはすべて落ちる", () => {
+    const template = `# レシピ
+- タグ: a, b, c, d, e
+
+## 材料
+- 塩 | 少々 | |
+
+## 手順
+1. 味付けする。
+`;
+    const result = applyMetadataToTemplate(template, [
+      meta({ tags: ["新タグ1", "新タグ2"] }),
+    ]);
+
+    expect(result).toContain("- タグ: a, b, c, d, e");
+    expect(result).not.toContain("新タグ1");
+    expect(result).not.toContain("新タグ2");
+  });
+
+  it("整合性テスト: 同じ入力をパーサとmergeの両方に通すと、認識するレシピ件数が一致する(判定ロジックがズレたら落ちる)", () => {
+    const templates = [
+      // 通常の複数レシピ
+      `# レシピA
+
+## 材料
+- 塩 | 少々 | |
+
+## 手順
+1. 味付けする。
+
+# レシピB
+
+## 材料
+- 砂糖 | 少々 | |
+
+## 手順
+1. 甘くする。
+`,
+      // 出力全体がコードフェンスで包まれたケース(A3)
+      "```markdown\n# レシピ\n\n## 材料\n- 塩 | 少々 | |\n\n## 手順\n1. 味付けする。\n```\n",
+      // 途中にネストしたコードフェンスがあるケース
+      `# レシピ
+
+\`\`\`
+# フェンス内の偽見出し
+\`\`\`
+
+## 材料
+- 塩 | 少々 | |
+
+## 手順
+1. 味付けする。
+`,
+    ];
+
+    for (const template of templates) {
+      const { recipes } = parseRecipeTemplate(template);
+      // ダミーのカテゴリを認識レシピ数ぶん用意し、mergeに通す。
+      const metadata = recipes.map((_, i) => meta({ category: `カテゴリ${i}` }));
+      const merged = applyMetadataToTemplate(template, metadata);
+
+      // mergeが正しく同じ件数のレシピを認識していれば、それぞれのダミー
+      // カテゴリが過不足なく出力に含まれるはず(件数がズレれば、挿入位置が
+      // ずれるか、一部が反映されずに不一致になる)。
+      const foundCount = metadata.filter((m) =>
+        merged.includes(`- カテゴリ: ${m!.category}`),
+      ).length;
+      expect(foundCount).toBe(recipes.length);
+    }
   });
 });

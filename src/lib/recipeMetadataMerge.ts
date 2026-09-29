@@ -7,10 +7,20 @@
  * 分類結果は(テキストに書き込まれているので)消えない。
  *
  * レシピ境界("# " 見出し)・セクション見出し("## ")・コードフェンスの判定は
- * `src/lib/recipeMarkdown.ts` と同じ正規表現ロジックを使う。ただしパーサ本体は
- * 変更不要の方針のため、ここで同じロジックを複製する(api/_lib/arrange/schema.ts
- * が src/lib/techniqueMarkup.ts のロジックを複製しているのと同じ考え方)。
+ * `src/lib/recipeMarkdown.ts` が export する関数・正規表現を**そのまま使う**
+ * (以前はここに同じロジックを複製していたが、出力全体がコードフェンスで
+ * 包まれたときに「外側フェンスを外す」処理がこちら側に無く、全行を
+ * 「フェンス内」と誤判定してno-opになる=分類結果が無言で反映されないバグが
+ * あった。2026-09-29 再レビューA3。判定ロジックを一本化して再発を防ぐ)。
  */
+import {
+  normalizeLineEndings,
+  unwrapOuterFence,
+  computeFenceMask,
+  RECIPE_TITLE_RE,
+  SECTION_HEADING_RE,
+  METADATA_LINE_RE,
+} from "./recipeMarkdown";
 
 /**
  * api/_lib/import/classify-schema.ts の `ClassifiedMetadata` と同じ形。
@@ -23,36 +33,10 @@ export interface ClassifiedMetadata {
   cookingTimeMinutes: number | null;
 }
 
-// src/lib/recipeMarkdown.ts と同じ境界判定(意図的に複製。ファイル冒頭コメント参照)。
-const RECIPE_TITLE_RE = /^#\s+(.+?)\s*$/;
-const SECTION_HEADING_RE = /^##\s+(.+?)\s*$/;
-const METADATA_LINE_RE = /^-\s*(.+?)\s*[:：]\s*(.*)$/;
-
 type MetadataKey = "カテゴリ" | "人数" | "調理時間" | "タグ";
 const METADATA_KEYS: readonly MetadataKey[] = ["カテゴリ", "人数", "調理時間", "タグ"];
 /** タグの最大個数(api/_lib/import/classify-schema.tsと同じ上限)。 */
 const MAX_TAGS = 5;
-
-function normalizeLineEndings(text: string): string {
-  let t = text;
-  if (t.charCodeAt(0) === 0xfeff) t = t.slice(1);
-  return t.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-}
-
-/** 各行がコードフェンス(```)の内側(フェンス行自体を含む)かどうかを返す。 */
-function computeFenceMask(lines: string[]): boolean[] {
-  const mask: boolean[] = new Array(lines.length).fill(false);
-  let inFence = false;
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].trim().startsWith("```")) {
-      mask[i] = true;
-      inFence = !inFence;
-      continue;
-    }
-    mask[i] = inFence;
-  }
-  return mask;
-}
 
 function splitTags(value: string): string[] {
   const seen = new Set<string>();
@@ -88,7 +72,10 @@ interface FoundLine {
 
 /**
  * メタデータ領域(タイトル行の次〜最初の非フェンス"## "見出しの手前、
- * コードフェンス内を除く)から、4つのキーそれぞれの最初の出現を探す。
+ * コードフェンス内を除く)から、4つのキーそれぞれの出現を探す。
+ * 同じキーが複数回出てきた場合は**後勝ち**にする
+ * (`src/lib/recipeMarkdown.ts` の `parseMetadata` と同じ意味論に合わせる。
+ * 再レビューB1。以前は最初の出現を使っており、パーサ側の解釈とズレていた)。
  */
 function findMetadataLines(
   lines: string[],
@@ -106,7 +93,7 @@ function findMetadataLines(
     const key = match[1].trim();
     if (!(METADATA_KEYS as readonly string[]).includes(key)) continue;
     const typedKey = key as MetadataKey;
-    if (found[typedKey]) continue; // 最初の出現だけを見る(重複行は触らない)
+    // 後勝ち: 既に見つかっていても上書きする。
     found[typedKey] = { index: i, value: match[2].trim() };
   }
   return found;
@@ -124,21 +111,26 @@ function buildLine(key: MetadataKey, value: string): string {
  *   失敗した)場合は、そのブロックには一切手を加えない(件数がズレても例外を
  *   投げない)。
  * - カテゴリ・人数・調理時間は、既に値が入っている行があれば上書きしない
- *   (元のMarkdownに書いてあった情報 > AIの推測)。
+ *   (元のMarkdownに書いてあった情報 > AIの推測)。重複行がある場合は
+ *   後勝ち(最後に出てきた行)を基準にする。
  * - タグは、既存のタグ(日付など)と分類結果のタグをマージし、重複除去のうえ
  *   最大5個にする(タグだけは既存値があっても追記する)。
  * - 該当キーの行が無ければ、タイトル直後にカテゴリ→人数→調理時間→タグの順で
  *   まとめて挿入する。
  * - コードフェンス内、各レシピの`## `セクション(材料・手順・メモ)以降は
- *   一切変更しない。
+ *   一切変更しない。出力全体が1枚のコードフェンスで包まれている場合は、
+ *   パーサと同じく外側のフェンスを外してから処理する(再レビューA3)。
  */
 export function applyMetadataToTemplate(
   templateText: string,
   metadata: (ClassifiedMetadata | null)[],
 ): string {
   const normalized = normalizeLineEndings(templateText);
-  const lines = normalized.split("\n");
-  const fenceMask = computeFenceMask(lines);
+  // フェンス関連のwarningは、整形結果を最初に解析した時点(parseRecipeTemplate)
+  // で既にユーザーへ表示済みのため、ここでは再度使わず捨てる。
+  const discardedWarnings: string[] = [];
+  const lines = unwrapOuterFence(normalized.split("\n"), discardedWarnings);
+  const fenceMask = computeFenceMask(lines, discardedWarnings);
 
   const titleIndices: number[] = [];
   lines.forEach((line, i) => {

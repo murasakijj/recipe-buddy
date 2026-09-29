@@ -66,6 +66,26 @@ describe("importClassifyRequestSchema", () => {
     });
     expect(result.success).toBe(true);
   });
+
+  it("再レビューB9: 合計文字数が上限(50000)を超えると失敗する", () => {
+    // 1件あたりの上限には収まるが、20件分の合計では上限を超えるようにする。
+    const bigRecipe = {
+      title: "あ".repeat(200),
+      ingredients: Array.from({ length: 60 }, () => "い".repeat(100)),
+      steps: Array.from({ length: 60 }, () => "う".repeat(500)),
+    };
+    const result = importClassifyRequestSchema.safeParse({
+      recipes: Array.from({ length: 20 }, () => bigRecipe),
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("再レビューB9: 合計文字数が上限以内なら成功する", () => {
+    const result = importClassifyRequestSchema.safeParse({
+      recipes: Array.from({ length: 20 }, () => validRecipe),
+    });
+    expect(result.success).toBe(true);
+  });
 });
 
 describe("importClassifyResponseRawSchema", () => {
@@ -78,13 +98,25 @@ describe("importClassifyResponseRawSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("tagsが省略されてもdefaultで補われる", () => {
+  it("tagsが省略されても(undefinedのまま)パースは成功する(空配列化はsanitize側の責務)", () => {
     const result = importClassifyResponseRawSchema.safeParse({
       results: [{ category: "主食", servings: null, cookingTimeMinutes: null }],
     });
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.results[0].tags).toEqual([]);
+      expect(result.data.results[0].tags).toBeUndefined();
+    }
+  });
+
+  it("tagsがnullでもパースは成功する(再レビューB2: AIがnullを返すケース)", () => {
+    const result = importClassifyResponseRawSchema.safeParse({
+      results: [
+        { category: "主食", tags: null, servings: null, cookingTimeMinutes: null },
+      ],
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.results[0].tags).toBeNull();
     }
   });
 
@@ -227,5 +259,25 @@ describe("sanitizeClassifiedMetadata", () => {
         cookingTimeMinutes: 20.5,
       }).cookingTimeMinutes,
     ).toBeNull();
+  });
+
+  it("再レビューB2: tagsがnullでも空配列として扱う(20件のチャンクを丸ごと捨てない)", () => {
+    const sanitized = sanitizeClassifiedMetadata({
+      category: null,
+      tags: null,
+      servings: null,
+      cookingTimeMinutes: null,
+    });
+    expect(sanitized.tags).toEqual([]);
+  });
+
+  it("再レビューB3: カテゴリの前後に空白があってもtrimしてから語彙照合する", () => {
+    const sanitized = sanitizeClassifiedMetadata({
+      category: " 主菜 ",
+      tags: [],
+      servings: null,
+      cookingTimeMinutes: null,
+    });
+    expect(sanitized.category).toBe("主菜");
   });
 });

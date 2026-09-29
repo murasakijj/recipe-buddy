@@ -5,15 +5,12 @@ import type { ClassifiedMetadata } from "./recipeMetadataMerge";
  * POST /api/import-normalize を呼び、自由書式のMarkdownを正規化テンプレートへ
  * 整形させる(docs/api.md、docs/decisions.md「Markdownインポート」)。
  */
-export async function normalizeMarkdown(
-  markdown: string,
-  sourceName?: string,
-): Promise<string> {
+export async function normalizeMarkdown(markdown: string): Promise<string> {
   const headers = await authHeader();
   const res = await fetch("/api/import-normalize", {
     method: "POST",
     headers: { ...headers, "Content-Type": "application/json" },
-    body: JSON.stringify(sourceName ? { markdown, sourceName } : { markdown }),
+    body: JSON.stringify({ markdown }),
   });
   if (!res.ok) {
     throw new ApiError(res.status, await readError(res));
@@ -47,5 +44,12 @@ export async function classifyRecipes(
     throw new ApiError(res.status, await readError(res));
   }
   const data = (await res.json()) as { results: ClassifiedMetadata[] };
+  // 件数がズレたまま返すと、呼び出し側(RecipeImport.tsx)で結果を順番に
+  // 対応付けたときに別のレシピへ書き込まれる事故になる(再レビューB4)。
+  // ここで検知し、呼び出し側の既存のエラーハンドリング(チャンク単位でnull埋め)
+  // に乗せられるよう失敗として扱う。
+  if (data.results.length !== recipes.length) {
+    throw new ApiError(502, "invalid_ai_output");
+  }
   return data.results;
 }

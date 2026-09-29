@@ -108,7 +108,12 @@ export default function RecipeImport() {
     null,
   );
 
-  const isStale = hasParsedOnce && templateText !== lastParsedText;
+  // classifyAndMergeInto は分類結果を反映するためにtemplateTextを書き換えてから
+  // reparse()するが、その一瞬(setTemplateTextの反映とreparseの間)にtemplateTextと
+  // lastParsedTextが一致しなくなり、「テキストを編集しました」の誤バナーが出て
+  // いた(再レビューB5)。classifying中はisStale扱いにしない。
+  const isStale =
+    hasParsedOnce && templateText !== lastParsedText && !classifying;
 
   const selectableCount = useMemo(
     () =>
@@ -121,7 +126,17 @@ export default function RecipeImport() {
     [rows, selected, registeredMap],
   );
 
-  /** テンプレート文字列をローカルパーサのみで解析し直し、一覧プレビューの状態を作り直す。 */
+  /**
+   * テンプレート文字列をローカルパーサのみで解析し直し、一覧プレビューの状態を
+   * 作り直す。行は毎回新しいkeyで再採番されるため、`registeredMap`(行key基準の
+   * 登録済み状態)は素朴には引き継げない。以前は`reparse`のたびに空にしていたが、
+   * それだと「カテゴリ・タグをもう一度判定」(handleReclassify)が内部で
+   * `reparse`を呼ぶことで、登録直後に再判定すると「登録済み」の表示とチェック
+   * 不可状態が消え、同じ行を重複登録できてしまっていた(再レビューB7)。
+   * `registeredTitles`(タイトル基準、reparseをまたいで保持)を使って、
+   * 新しい行のうち登録済みタイトルと一致するものには新しいkeyのまま
+   * `registeredMap`を再構築する。
+   */
   function reparse(text: string) {
     const result = parseRecipeTemplate(text);
     const nextRows: RecipeRow[] = result.recipes.map((parsed) => ({
@@ -129,21 +144,22 @@ export default function RecipeImport() {
       parsed,
     }));
     const nextSelected: Record<string, boolean> = {};
+    const nextRegisteredMap: Record<string, string> = {};
     nextRows.forEach((row) => {
       const hasErrors = Object.keys(row.parsed.errors).length > 0;
-      // errorsがあるレシピは既定でも選択できない(チェック不可)。
-      // このセッションで既に同名のレシピを登録済みなら、二重登録の
-      // 誤クリックを避けるため既定はチェックを外す(手動でチェックすれば
-      // 再登録も可能。docs/decisions.md「レシピ名の重複は許可」)。
-      const alreadyRegisteredThisSession = !!registeredTitles[
-        row.parsed.input.title
-      ];
-      nextSelected[row.key] = !hasErrors && !alreadyRegisteredThisSession;
+      // このセッションで既に同名のレシピを登録済みなら、登録済み状態を
+      // 新しい行keyに引き継ぐ(チェック不可・「登録済み」表示にする)。
+      // レシピ名の重複自体は許可する(docs/decisions.md)。
+      const registeredId = registeredTitles[row.parsed.input.title];
+      if (registeredId) {
+        nextRegisteredMap[row.key] = registeredId;
+      }
+      nextSelected[row.key] = !hasErrors && !registeredId;
     });
     setRows(nextRows);
     setParseWarnings(result.warnings);
     setSelected(nextSelected);
-    setRegisteredMap({});
+    setRegisteredMap(nextRegisteredMap);
     setHasParsedOnce(true);
     setLastParsedText(text);
     setRegisterSummary(null);
@@ -215,9 +231,7 @@ export default function RecipeImport() {
     setFailedSources([]);
     setProgress(null);
 
-    // sourceNameはファイル名のときだけ渡す(貼り付けテキストは日付タグの
-    // フォールバックに使えるファイル名を持たないため。再レビューM2)。
-    const sources: { label: string; text: string; sourceName?: string }[] = [];
+    const sources: { label: string; text: string }[] = [];
     const pasted = pastedText.trim();
     if (pasted.length > 0) {
       sources.push({ label: "貼り付けテキスト", text: pasted });
@@ -236,7 +250,7 @@ export default function RecipeImport() {
           );
           continue;
         }
-        sources.push({ label: file.name, text, sourceName: file.name });
+        sources.push({ label: file.name, text });
       } catch (err) {
         console.error("[import] file read failed", file.name, err);
         fileReadFailures.push(file.name);
@@ -265,9 +279,7 @@ export default function RecipeImport() {
         `${sources.length}件中${i + 1}件目を整形中...（${sources[i].label}）`,
       );
       try {
-        succeeded.push(
-          await normalizeMarkdown(sources[i].text, sources[i].sourceName),
-        );
+        succeeded.push(await normalizeMarkdown(sources[i].text));
       } catch (err) {
         console.error("[import] normalize failed", sources[i].label, err);
         failed.push(sources[i].label);
@@ -478,12 +490,22 @@ export default function RecipeImport() {
             </p>
           )}
 
-          {classifyErrorCode && (
-            <div className="notice notice-warning" role="alert">
-              <p>
-                カテゴリ・タグの自動設定に失敗しました。レシピ自体は取り込めています。
-              </p>
-              <p>{errorMessageFor(classifyErrorCode)}</p>
+          {rows.length > 0 && (
+            // 分類が成功していても(全件nullで返った場合や、手直し後に
+            // 判定し直したい場合の導線として)常に表示する(再レビューB6)。
+            // 失敗中だけ理由と警告色を added する。
+            <div
+              className={classifyErrorCode ? "notice notice-warning" : "notice"}
+              role={classifyErrorCode ? "alert" : undefined}
+            >
+              {classifyErrorCode && (
+                <>
+                  <p>
+                    カテゴリ・タグの自動設定に失敗しました。レシピ自体は取り込めています。
+                  </p>
+                  <p>{errorMessageFor(classifyErrorCode)}</p>
+                </>
+              )}
               <button
                 type="button"
                 className="btn"

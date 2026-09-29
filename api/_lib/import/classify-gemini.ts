@@ -6,6 +6,7 @@ import {
   getModel,
   AiProviderError,
   callGeminiWithRetry,
+  logGeminiSuccess,
   TIMEOUT_MS,
 } from "../ai.js";
 
@@ -39,11 +40,12 @@ export async function generateClassification(
   recipes: ClassifyRecipeInput[],
 ): Promise<unknown> {
   const client = getClient();
+  const model = getModel();
 
   const response = await callGeminiWithRetry(
     (signal) =>
       client.models.generateContent({
-        model: getModel(),
+        model,
         config: {
           systemInstruction: IMPORT_CLASSIFY_SYSTEM_PROMPT,
           responseMimeType: "application/json",
@@ -54,8 +56,9 @@ export async function generateClassification(
           { role: "user", parts: [{ text: buildClassifyUserMessage(recipes) }] },
         ],
       }),
-    { logTag: "import-classify", deadlineMs: TIMEOUT_MS },
+    { logTag: "import-classify", deadlineMs: TIMEOUT_MS, model },
   );
+  logGeminiSuccess("import-classify", model, response);
 
   const text = response.text;
   if (!text) {

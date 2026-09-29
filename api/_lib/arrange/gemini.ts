@@ -6,6 +6,7 @@ import {
   getModel,
   AiProviderError,
   callGeminiWithRetry,
+  logGeminiSuccess,
   TIMEOUT_MS,
 } from "../ai.js";
 
@@ -81,6 +82,7 @@ export async function generateArrangement(
   input: ArrangeRequestBody,
 ): Promise<unknown> {
   const client = getClient();
+  const model = getModel();
   const userMessage = buildUserMessage(
     input.recipe,
     input.techniques,
@@ -90,7 +92,7 @@ export async function generateArrangement(
   const response = await callGeminiWithRetry(
     (signal) =>
       client.models.generateContent({
-        model: getModel(),
+        model,
         config: {
           systemInstruction: ARRANGE_SYSTEM_PROMPT,
           responseMimeType: "application/json",
@@ -99,8 +101,9 @@ export async function generateArrangement(
         },
         contents: [{ role: "user", parts: [{ text: userMessage }] }],
       }),
-    { logTag: "arrange", deadlineMs: TIMEOUT_MS },
+    { logTag: "arrange", deadlineMs: TIMEOUT_MS, model },
   );
+  logGeminiSuccess("arrange", model, response);
 
   const text = response.text;
   if (!text) {

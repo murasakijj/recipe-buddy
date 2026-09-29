@@ -14,6 +14,13 @@ const MAX_INGREDIENT_LENGTH = 100;
 const MAX_STEP_LENGTH = 500;
 const MAX_INGREDIENTS_PER_RECIPE = 60;
 const MAX_STEPS_PER_RECIPE = 60;
+/**
+ * リクエスト全体(全レシピのtitle+ingredients+stepsの文字数の合計)の上限。
+ * 1件あたりの上限だけでは、20件 × (200 + 60*100 + 60*500) ≈ 72万文字まで
+ * 送れてしまう(再レビューB9)。プロンプト・レスポンスの肥大化やコストを
+ * 抑えるため、合計にも上限を設ける。
+ */
+const MAX_TOTAL_LENGTH = 50_000;
 
 const classifyRecipeInputSchema = z.object({
   title: z.string().max(MAX_TITLE_LENGTH),
@@ -23,9 +30,22 @@ const classifyRecipeInputSchema = z.object({
 
 export type ClassifyRecipeInput = z.infer<typeof classifyRecipeInputSchema>;
 
-export const importClassifyRequestSchema = z.object({
-  recipes: z.array(classifyRecipeInputSchema).min(1).max(MAX_RECIPES),
-});
+function totalLength(recipes: ClassifyRecipeInput[]): number {
+  return recipes.reduce((sum, r) => {
+    const ingredientsLength = r.ingredients.reduce((s, i) => s + i.length, 0);
+    const stepsLength = r.steps.reduce((s, i) => s + i.length, 0);
+    return sum + r.title.length + ingredientsLength + stepsLength;
+  }, 0);
+}
+
+export const importClassifyRequestSchema = z
+  .object({
+    recipes: z.array(classifyRecipeInputSchema).min(1).max(MAX_RECIPES),
+  })
+  .refine((body) => totalLength(body.recipes) <= MAX_TOTAL_LENGTH, {
+    message: `合計文字数が上限(${MAX_TOTAL_LENGTH})を超えています。`,
+    path: ["recipes"],
+  });
 
 export type ImportClassifyRequestBody = z.infer<typeof importClassifyRequestSchema>;
 
@@ -39,7 +59,11 @@ const numberOrNumericString = z.union([
 
 const classifiedMetadataRawSchema = z.object({
   category: z.string().nullable().optional(),
-  tags: z.array(z.string()).default([]),
+  // AIが `tags: null` を返すことがあり、z.array(...).default([]) は
+  // null を弾いてしまう(defaultはundefinedにしか効かない)ため、そのケースだけ
+  // 20件のチャンク全体が invalid_ai_output で捨てられていた(再レビューB2)。
+  // .nullable() を足し、サニタイズ側で `?? []` にする。
+  tags: z.array(z.string()).nullable().optional(),
   servings: z.string().nullable().optional(),
   cookingTimeMinutes: numberOrNumericString.nullable().optional(),
 });
@@ -91,14 +115,20 @@ const MAX_TAGS = 5;
 export function sanitizeClassifiedMetadata(
   raw: ClassifiedMetadataRaw,
 ): ClassifiedMetadata {
+  // trimしてから語彙照合する(再レビューB3)。以前はtrimせず照合していたため
+  // " 主菜 " のような前後空白付きの値が語彙外扱いになり null に落ちていた
+  // (タグ側は既にtrimしてから比較していて非対称だった)。
+  const trimmedCategory = raw.category?.trim();
   const category =
-    raw.category && (CATEGORY_VOCABULARY as readonly string[]).includes(raw.category)
-      ? raw.category
+    trimmedCategory &&
+    (CATEGORY_VOCABULARY as readonly string[]).includes(trimmedCategory)
+      ? trimmedCategory
       : null;
 
   const seen = new Set<string>();
   const tags: string[] = [];
-  for (const tag of raw.tags) {
+  // AIが `tags: null` を返すケースに対応する(再レビューB2)。
+  for (const tag of raw.tags ?? []) {
     const trimmed = tag.trim();
     if (trimmed.length === 0 || seen.has(trimmed)) continue;
     seen.add(trimmed);

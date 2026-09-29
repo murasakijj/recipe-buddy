@@ -62,10 +62,18 @@ function statusOf(err: unknown): number | undefined {
  * 使っており、SDKのバージョン差やラップで `instanceof` が外れても「503を
  * リトライした末に upstream_error と報告する」ような判定基準のズレが起きない
  * ようにするため。
+ *
+ * `model` はどのモデルで失敗したかをログから追えるようにするための診断情報
+ * (2026-09-28)。503の原因切り分けにモデル名が要るため必須ではないが渡せるようにする。
  */
-export function toAiProviderError(err: unknown, logTag: string): AiProviderError {
+export function toAiProviderError(
+  err: unknown,
+  logTag: string,
+  model?: string,
+): AiProviderError {
   const e = err as { name?: unknown; status?: unknown; message?: unknown };
   console.error(`[${logTag}] gemini error`, {
+    model,
     name: e?.name,
     status: e?.status,
     message: e?.message,
@@ -163,13 +171,46 @@ function classifyFinalError(
   err: unknown,
   logTag: string,
   lastRetryableStatus: number | undefined,
+  model: string | undefined,
 ): AiProviderError {
-  const mapped = toAiProviderError(err, logTag);
+  const mapped = toAiProviderError(err, logTag, model);
   if (isAbortLike(err) && lastRetryableStatus !== undefined) {
     const code = lastRetryableStatus === 429 ? "rate_limited" : "overloaded";
     return new AiProviderError(mapped.statusCode, code);
   }
   return mapped;
+}
+
+/**
+ * Gemini呼び出し成功時の診断情報をログに残す(2026-09-28。503の原因切り分けの
+ * ため、`MAX_TOKENS`/`SAFETY`等でレスポンスが途中で切れているケースと、
+ * 過負荷で失敗しているケースを後から区別できるようにする)。
+ * APIキー・リクエスト本文・生成内容は出さず、トークン数と終了理由だけを記録する。
+ */
+export interface GeminiUsageLike {
+  candidates?: { finishReason?: unknown }[];
+  usageMetadata?: {
+    promptTokenCount?: number;
+    candidatesTokenCount?: number;
+    totalTokenCount?: number;
+    thoughtsTokenCount?: number;
+  };
+}
+
+export function logGeminiSuccess(
+  logTag: string,
+  model: string,
+  response: GeminiUsageLike,
+): void {
+  const usage = response.usageMetadata;
+  console.log(`[${logTag}] gemini success`, {
+    model,
+    finishReason: response.candidates?.[0]?.finishReason,
+    promptTokenCount: usage?.promptTokenCount,
+    candidatesTokenCount: usage?.candidatesTokenCount,
+    totalTokenCount: usage?.totalTokenCount,
+    thoughtsTokenCount: usage?.thoughtsTokenCount,
+  });
 }
 
 export interface CallWithRetryOptions {
@@ -181,6 +222,8 @@ export interface CallWithRetryOptions {
   sleep?: (ms: number) => Promise<void>;
   /** テスト用の差し替え。既定は Date.now。 */
   now?: () => number;
+  /** ログに残すモデル名(診断用。2026-09-28)。 */
+  model?: string;
 }
 
 /**
@@ -201,7 +244,7 @@ export async function callGeminiWithRetry<T>(
   attempt: (signal: AbortSignal) => Promise<T>,
   options: CallWithRetryOptions,
 ): Promise<T> {
-  const { logTag } = options;
+  const { logTag, model } = options;
   const deadlineMs = options.deadlineMs ?? TIMEOUT_MS;
   const sleep = options.sleep ?? defaultSleep;
   const now = options.now ?? Date.now;
@@ -219,6 +262,7 @@ export async function callGeminiWithRetry<T>(
         lastErr ?? new Error("deadline exceeded before attempt"),
         logTag,
         lastRetryableStatus,
+        model,
       );
     }
 
@@ -233,12 +277,12 @@ export async function callGeminiWithRetry<T>(
       }
       const isLastAttempt = i === MAX_ATTEMPTS - 1;
       if (!isRetryable || isLastAttempt) {
-        throw classifyFinalError(err, logTag, lastRetryableStatus);
+        throw classifyFinalError(err, logTag, lastRetryableStatus, model);
       }
 
       const remainingAfterFailure = deadlineMs - (now() - startedAt);
       if (remainingAfterFailure < MIN_REMAINING_MS_FOR_RETRY) {
-        throw classifyFinalError(err, logTag, lastRetryableStatus);
+        throw classifyFinalError(err, logTag, lastRetryableStatus, model);
       }
 
       const backoff =
@@ -262,5 +306,5 @@ export async function callGeminiWithRetry<T>(
   }
 
   // 上のループは必ずreturn/throwで抜けるが、TSの制御フロー解析のため明示しておく。
-  throw classifyFinalError(lastErr, logTag, lastRetryableStatus);
+  throw classifyFinalError(lastErr, logTag, lastRetryableStatus, model);
 }

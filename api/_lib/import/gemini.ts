@@ -5,6 +5,7 @@ import {
   getModel,
   AiProviderError,
   callGeminiWithRetry,
+  logGeminiSuccess,
   TIMEOUT_MS,
 } from "../ai.js";
 
@@ -26,26 +27,25 @@ const RESPONSE_SCHEMA: Schema = {
  */
 export async function generateNormalizedMarkdown(
   markdown: string,
-  sourceName?: string,
 ): Promise<unknown> {
   const client = getClient();
+  const model = getModel();
 
   const response = await callGeminiWithRetry(
     (signal) =>
       client.models.generateContent({
-        model: getModel(),
+        model,
         config: {
           systemInstruction: IMPORT_NORMALIZE_SYSTEM_PROMPT,
           responseMimeType: "application/json",
           responseSchema: RESPONSE_SCHEMA,
           abortSignal: signal,
         },
-        contents: [
-          { role: "user", parts: [{ text: buildUserMessage(markdown, sourceName) }] },
-        ],
+        contents: [{ role: "user", parts: [{ text: buildUserMessage(markdown) }] }],
       }),
-    { logTag: "import-normalize", deadlineMs: TIMEOUT_MS },
+    { logTag: "import-normalize", deadlineMs: TIMEOUT_MS, model },
   );
+  logGeminiSuccess("import-normalize", model, response);
 
   const text = response.text;
   if (!text) {
