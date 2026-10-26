@@ -58,7 +58,7 @@ Vercel（サーバー側、秘密）:
 | 変数 | 用途 |
 | --- | --- |
 | `FIREBASE_PROJECT_ID` | 共有 Firebase プロジェクトの ID。ID トークン検証のみに使う（推奨）。サービスアカウントは渡さない（他アプリのデータへの権限を持たせないため） |
-| `FIREBASE_SERVICE_ACCOUNT` | 旧方式（後方互換）。firebase-admin 初期化用サービスアカウント JSON（1行化）。設定されていると `FIREBASE_PROJECT_ID` より優先される。共有プロジェクトでは設定しない |
+| `FIREBASE_SERVICE_ACCOUNT` | 旧方式（後方互換）。firebase-admin 初期化用サービスアカウント JSON（1行化）。`FIREBASE_PROJECT_ID` が設定されていればそちらが優先され、これは無視される（警告ログのみ）。共有プロジェクトでは設定しない |
 | `ALLOWED_EMAILS` | ログイン許可メール（カンマ区切り、小文字比較） |
 | `GEMINI_API_KEY` | Gemini API キー |
 | `GEMINI_MODEL` | 任意。既定 `gemini-3.6-flash` |
@@ -111,7 +111,7 @@ recipe-buddy/
 - [ ] `GEMINI_API_KEY` / `FIREBASE_SERVICE_ACCOUNT` がフロントバンドルに含まれない
 - [ ] すべての `/api/*` が `requireAuth` を通る
 - [ ] `ALLOWED_EMAILS` 照合は小文字化
-- [ ] Firestore ルールが `users/{uid}` を本人＋許可メールに限定している
+- [ ] Firestore ルール（正本は household-chore-manager の `firebase/firestore.rules`）が `users/{uid}/recipes` と `users/{uid}/techniques` のみを、検証済み Google アカウントの本人（許可メール＋uid 一致）に限定している。`users/{uid}/**` のワイルドカード許可が無い
 - [ ] AI出力は zod で検証し、存在しない `techniqueId` を落としてから返す
 - [ ] レシピ本文は React のテキストとして描画し、`dangerouslySetInnerHTML` を使わない
 - [ ] Firebase Auth の承認済みドメインに Vercel 本番 URL を登録

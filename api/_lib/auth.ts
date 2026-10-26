@@ -12,19 +12,26 @@ function getFirebaseApp(): App {
     return cachedApp;
   }
 
+  // 推奨: 共有 Firebase プロジェクトの ID だけで初期化する(FIREBASE_PROJECT_ID が優先)。
+  // 資格情報を持たないため verifyIdToken(公開鍵での署名検証)のみ使え、
+  // 他アプリの Firestore データには触れない。
+  const projectId = process.env.FIREBASE_PROJECT_ID?.trim();
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
+  if (projectId) {
+    if (raw) {
+      // 中身は出さない。
+      console.warn(
+        "[auth] FIREBASE_SERVICE_ACCOUNT is ignored because FIREBASE_PROJECT_ID takes precedence",
+      );
+    }
+    cachedApp = initializeApp({ projectId });
+    return cachedApp;
+  }
+
   if (raw) {
     // 従来の指定(後方互換)。サービスアカウントの権限で初期化する。
     const serviceAccount = JSON.parse(raw) as Parameters<typeof cert>[0];
     cachedApp = initializeApp({ credential: cert(serviceAccount) });
-    return cachedApp;
-  }
-
-  // 推奨: 共有 Firebase プロジェクトの ID だけで初期化する。資格情報を持たないため
-  // verifyIdToken(公開鍵での署名検証)のみ使え、他アプリの Firestore データには触れない。
-  const projectId = process.env.FIREBASE_PROJECT_ID?.trim();
-  if (projectId) {
-    cachedApp = initializeApp({ projectId });
     return cachedApp;
   }
 

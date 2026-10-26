@@ -8,7 +8,7 @@
 
 1. **承認済みドメイン**: 共有プロジェクトの Authentication → Settings → 承認済みドメインに Vercel 本番ドメインを追加（共有プロジェクト側に登録する）。ドメインは Vercel ダッシュボードのプロジェクト画面「Domains」に表示される `xxxx.vercel.app`（`recipe-buddy.vercel.app` は他人のプロジェクトなので使わない）。
 2. **`VITE_FIREBASE_*`**: 共有プロジェクトの プロジェクトの設定 → 全般 → マイアプリ にある既存の Web アプリ設定（`firebaseConfig`）を使う。このアプリ用に Web アプリを追加登録する必要はない。
-3. **サーバー側**: Vercel の `FIREBASE_PROJECT_ID` に共有プロジェクトの ID を設定する（推奨）。このアプリのサーバーは ID トークンの検証しかしないので、**サービスアカウントは渡さない**（渡すと他アプリのデータを読み書きできる権限を持ってしまうため）。`FIREBASE_SERVICE_ACCOUNT` を設定した場合は従来どおりそちらが優先される（後方互換。共有プロジェクトでは設定しない）。
+3. **サーバー側**: Vercel の `FIREBASE_PROJECT_ID` に共有プロジェクトの ID を設定する（推奨）。このアプリのサーバーは ID トークンの検証しかしないので、**サービスアカウントは渡さない**（渡すと他アプリのデータを読み書きできる権限を持ってしまうため）。`FIREBASE_PROJECT_ID` が設定されていれば常にそちらが優先され、`FIREBASE_SERVICE_ACCOUNT` が残っていても無視される（警告ログが出る）。`FIREBASE_SERVICE_ACCOUNT` だけの場合は従来どおり（後方互換。共有プロジェクトでは設定しない）。
 4. **Firestore ルール・インデックス**: このリポジトリからはデプロイしない。正本は household-chore-manager の `firebase/`（[firebase/README.md](../firebase/README.md) 参照）。
 
 ## 2. Gemini API キー
