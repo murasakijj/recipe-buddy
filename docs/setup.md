@@ -4,13 +4,12 @@
 
 ## 1. Firebase プロジェクト
 
-1. https://console.firebase.google.com/ で新規プロジェクト（例: `recipe-buddy`）を作成。
-2. **Authentication** → Sign-in method → **Google** を有効化（サポートメール設定）。
-3. **Authentication** → Settings → 承認済みドメインに Vercel 本番ドメインを追加。ドメインは Vercel ダッシュボードのプロジェクト画面「Domains」に表示される `xxxx.vercel.app`（`recipe-buddy.vercel.app` は他人のプロジェクトなので使わない）。
-4. **Firestore Database** を作成（ロケーション `asia-northeast1`、本番モード）。
-5. Firestore → ルール に [firebase/firestore.rules](../firebase/firestore.rules) を貼り、`ALLOWED_EMAILS` の中身を自分のメールに置き換えて公開。
-6. プロジェクトの設定 → 全般 → マイアプリ → Web アプリを追加 → `firebaseConfig` を取得（`VITE_FIREBASE_*` に使う）。
-7. プロジェクトの設定 → サービスアカウント → 「新しい秘密鍵の生成」で JSON を取得（`FIREBASE_SERVICE_ACCOUNT` に使う。1行に潰す）。
+このアプリは専用の Firebase プロジェクトを作らず、household-chore-manager と同じ**共有プロジェクト**を使う（無料枠のプロジェクト数上限を避けるため）。共有プロジェクトの Authentication・Firestore・ルール・インデックスは household-chore-manager 側で用意・管理する。旧プロジェクトからの切り替え手順（データ移行を含む）は household-chore-manager の `docs/firebase-consolidation.md` を参照。
+
+1. **承認済みドメイン**: 共有プロジェクトの Authentication → Settings → 承認済みドメインに Vercel 本番ドメインを追加（共有プロジェクト側に登録する）。ドメインは Vercel ダッシュボードのプロジェクト画面「Domains」に表示される `xxxx.vercel.app`（`recipe-buddy.vercel.app` は他人のプロジェクトなので使わない）。
+2. **`VITE_FIREBASE_*`**: 共有プロジェクトの プロジェクトの設定 → 全般 → マイアプリ にある既存の Web アプリ設定（`firebaseConfig`）を使う。このアプリ用に Web アプリを追加登録する必要はない。
+3. **サーバー側**: Vercel の `FIREBASE_PROJECT_ID` に共有プロジェクトの ID を設定する（推奨）。このアプリのサーバーは ID トークンの検証しかしないので、**サービスアカウントは渡さない**（渡すと他アプリのデータを読み書きできる権限を持ってしまうため）。`FIREBASE_SERVICE_ACCOUNT` を設定した場合は従来どおりそちらが優先される（後方互換。共有プロジェクトでは設定しない）。
+4. **Firestore ルール・インデックス**: このリポジトリからはデプロイしない。正本は household-chore-manager の `firebase/`（[firebase/README.md](../firebase/README.md) 参照）。
 
 ## 2. Gemini API キー
 
@@ -21,7 +20,7 @@ https://aistudio.google.com/apikey で取得（`GEMINI_API_KEY`）。
 1. https://vercel.com/ で GitHub リポジトリ `murasakijj/recipe-buddy` をインポート（Framework: Vite）。
 2. Settings → Environment Variables に以下を登録:
    - `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_APP_ID`
-   - `FIREBASE_SERVICE_ACCOUNT`（JSON 1行）
+   - `FIREBASE_PROJECT_ID`（共有プロジェクトの ID。`FIREBASE_SERVICE_ACCOUNT` は設定しない）
    - `ALLOWED_EMAILS`（自分の Gmail）
    - `GEMINI_API_KEY`
 3. Deploy。以降 `main` への push で自動デプロイ。
@@ -51,5 +50,5 @@ npm run dev                  # フロントのみ（/api は動かない）
 
 - **Vercel Functions のエラー**: Vercel → プロジェクト → 上部タブ「Logs」→ `/api/...` の赤い行（500）をクリックすると、`Error:` で始まる実際のエラー文とスタックが見える。「認証サーバーに接続できませんでした」が出るときはまずここを見る。
 - **ビルド失敗**: Vercel → 「Deployments」→ 該当デプロイ → 「Building」のログ。
-- **Firestore の拒否**: ブラウザの開発者ツール Console に `permission-denied` が出る。ルールの許可メールを確認する。
+- **Firestore の拒否**: ブラウザの開発者ツール Console に `permission-denied` が出る。household-chore-manager 側の統合ルールがデプロイ済みか、許可メールが正しいかを確認する。
 - **既知の落とし穴**: `firebase-admin` が使う `jwks-rsa` は ESM 専用の `jose` v6 を `require()` するため、Vercel のランタイムで `ERR_REQUIRE_ESM` になる。`package.json` の `overrides` で `jose` を v4 に固定している。依存を更新するときはこの行を消さないこと。

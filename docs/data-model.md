@@ -119,17 +119,10 @@ interface ArrangeSession {
 
 ## Firestore セキュリティルール
 
-[firebase/firestore.rules](../firebase/firestore.rules) を Firebase Console に貼る。要点:
+共有 Firebase プロジェクトには1つのルールしか適用できないため、ルールの正本は household-chore-manager の `firebase/firestore.rules` にある（このリポジトリには置かない。[firebase/README.md](../firebase/README.md) 参照）。このアプリに関する要点:
 
-```
-match /users/{userId}/{document=**} {
-  allow read, write: if request.auth != null
-    && request.auth.uid == userId
-    && request.auth.token.email in ALLOWED_EMAILS;
-}
-```
-
-`ALLOWED_EMAILS` はルール内のリテラル配列。コンソールで実際のメールに置き換える。
+- `users/{userId}/recipes/{document=**}` と `users/{userId}/techniques/{document=**}` だけを本人（`request.auth.uid == userId` かつ許可メール・検証済み Google アカウント）に読み書き許可する。
+- `users/{userId}/` 配下全体のワイルドカード許可は使わない（同じ共有プロジェクトの fridge-track のコレクションの制約を破ってしまうため）。
 
 ## インデックス
 

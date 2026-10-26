@@ -22,9 +22,9 @@
 
 ## 設計原則
 
-1. **秘密情報はブラウザに置かない**。`GEMINI_API_KEY` と `FIREBASE_SERVICE_ACCOUNT` は Vercel 環境変数のみ。`VITE_` プレフィックスを付けない。
+1. **秘密情報はブラウザに置かない**。`GEMINI_API_KEY` と（設定する場合の）`FIREBASE_SERVICE_ACCOUNT` は Vercel 環境変数のみ。`VITE_` プレフィックスを付けない。
 2. **すべての `/api/*` は `requireAuth`（IDトークン検証 + `ALLOWED_EMAILS` 照合）を通す**。例外なし。
-3. **Firestore はセキュリティルールで守る**。`users/{uid}` 配下は `request.auth.uid == uid` かつ許可メールのみ読み書き可。
+3. **Firestore はセキュリティルールで守る**。`users/{uid}` 配下は `request.auth.uid == uid` かつ許可メールのみ読み書き可。ルールは共有 Firebase プロジェクトに1つだけ適用され、正本は household-chore-manager の `firebase/`（このリポジトリには置かない。[firebase/README.md](../firebase/README.md)）。
 4. **元レシピを AI が上書きしない**。アレンジ結果は別ドキュメント（子レシピ）として保存するか、セッション内で一時利用するだけ。
 5. 仕様外の機能を追加しない。§15 の追加候補は不採用（[decisions.md](./decisions.md)）。
 
@@ -48,7 +48,7 @@
 1. `Login` 画面で `signInWithPopup(auth, GoogleAuthProvider)`。
 2. `onAuthStateChanged` でユーザー取得後、`GET /api/auth-check` を Bearer トークン付きで呼び、403 なら `signOut` して「アクセス権がありません」を表示（money-lens の `AuthContext` と同じ）。
 3. 認可済みユーザーのみ `RequireAuth` 配下の画面を表示。
-4. Firestore への読み書きは SDK 直接。ルールで `uid` と許可メールを二重に確認する（[firebase/firestore.rules](../firebase/firestore.rules)）。
+4. Firestore への読み書きは SDK 直接。ルールで `uid` と許可メールを二重に確認する（ルールの正本は household-chore-manager の `firebase/firestore.rules`。[firebase/README.md](../firebase/README.md) 参照）。
 5. `/api/arrange` は `requireAuth` 通過後に Gemini を呼ぶ。
 
 ## 環境変数
@@ -57,7 +57,8 @@ Vercel（サーバー側、秘密）:
 
 | 変数 | 用途 |
 | --- | --- |
-| `FIREBASE_SERVICE_ACCOUNT` | firebase-admin 初期化用サービスアカウント JSON（1行化） |
+| `FIREBASE_PROJECT_ID` | 共有 Firebase プロジェクトの ID。ID トークン検証のみに使う（推奨）。サービスアカウントは渡さない（他アプリのデータへの権限を持たせないため） |
+| `FIREBASE_SERVICE_ACCOUNT` | 旧方式（後方互換）。firebase-admin 初期化用サービスアカウント JSON（1行化）。設定されていると `FIREBASE_PROJECT_ID` より優先される。共有プロジェクトでは設定しない |
 | `ALLOWED_EMAILS` | ログイン許可メール（カンマ区切り、小文字比較） |
 | `GEMINI_API_KEY` | Gemini API キー |
 | `GEMINI_MODEL` | 任意。既定 `gemini-3.6-flash` |
@@ -98,7 +99,7 @@ recipe-buddy/
 │   ├─ contexts/           ← AuthContext（money-lens から移植）
 │   ├─ components/         ← RequireAuth, TechniqueModal, StepText, IngredientList など
 │   └─ pages/              ← 画面（[ui.md](./ui.md)）
-├─ firebase/firestore.rules
+├─ firebase/README.md      ← ルールの正本は household-chore-manager 側（ここには置かない）
 ├─ docs/
 ├─ spec/
 ├─ vercel.json

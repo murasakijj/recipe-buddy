@@ -13,13 +13,22 @@ function getFirebaseApp(): App {
   }
 
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
-  if (!raw) {
-    throw new Error("FIREBASE_SERVICE_ACCOUNT is not set");
+  if (raw) {
+    // 従来の指定(後方互換)。サービスアカウントの権限で初期化する。
+    const serviceAccount = JSON.parse(raw) as Parameters<typeof cert>[0];
+    cachedApp = initializeApp({ credential: cert(serviceAccount) });
+    return cachedApp;
   }
 
-  const serviceAccount = JSON.parse(raw) as Parameters<typeof cert>[0];
-  cachedApp = initializeApp({ credential: cert(serviceAccount) });
-  return cachedApp;
+  // 推奨: 共有 Firebase プロジェクトの ID だけで初期化する。資格情報を持たないため
+  // verifyIdToken(公開鍵での署名検証)のみ使え、他アプリの Firestore データには触れない。
+  const projectId = process.env.FIREBASE_PROJECT_ID?.trim();
+  if (projectId) {
+    cachedApp = initializeApp({ projectId });
+    return cachedApp;
+  }
+
+  throw new Error("Set FIREBASE_PROJECT_ID (or FIREBASE_SERVICE_ACCOUNT)");
 }
 
 export class AuthError extends Error {
@@ -64,8 +73,8 @@ export async function requireAuth(
     throw new AuthError(401, "missing_token");
   }
 
-  // getFirebaseApp() はtryの外で呼ぶ。FIREBASE_SERVICE_ACCOUNT が未設定/不正
-  // という設定ミスは、トークン自体の不正(401 invalid_token)とは区別し、
+  // getFirebaseApp() はtryの外で呼ぶ。Firebase 設定(FIREBASE_PROJECT_ID /
+  // FIREBASE_SERVICE_ACCOUNT)が未設定/不正という設定ミスは、トークン自体の不正(401 invalid_token)とは区別し、
   // ハンドラのouter catchで 500 internal_error として扱わせる。
   const app = getFirebaseApp();
 

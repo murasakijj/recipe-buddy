@@ -1,14 +1,15 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterAll } from "vitest";
 
 // firebase-admin をモックする。getApps が初期化済みアプリを返すことで、
 // getFirebaseApp が FIREBASE_SERVICE_ACCOUNT env を要求せず既存アプリを使う。
-const verifyIdToken = vi.fn();
-
-vi.mock("firebase-admin/app", () => ({
-  getApps: () => [{}],
+const { verifyIdToken, getApps, initializeApp, cert } = vi.hoisted(() => ({
+  verifyIdToken: vi.fn(),
+  getApps: vi.fn(),
   initializeApp: vi.fn(),
   cert: vi.fn(),
 }));
+
+vi.mock("firebase-admin/app", () => ({ getApps, initializeApp, cert }));
 
 vi.mock("firebase-admin/auth", () => ({
   getAuth: () => ({ verifyIdToken }),
@@ -20,6 +21,8 @@ const { requireAuth } = await import("./auth.js");
 describe("requireAuth", () => {
   beforeEach(() => {
     verifyIdToken.mockReset();
+    getApps.mockReset();
+    getApps.mockReturnValue([{}]);
     process.env.ALLOWED_EMAILS = "ok@example.com, two@example.com";
   });
 
@@ -94,5 +97,67 @@ describe("requireAuth", () => {
       statusCode: 403,
       message: "forbidden",
     });
+  });
+});
+
+// getFirebaseApp は初期化結果をモジュール内にキャッシュするため、
+// 初期化経路のテストでは毎回モジュールを読み直す。
+describe("requireAuth: firebase-admin の初期化", () => {
+  const saved = { ...process.env };
+
+  async function loadFresh() {
+    vi.resetModules();
+    return await import("./auth.js");
+  }
+
+  beforeEach(() => {
+    verifyIdToken.mockReset();
+    getApps.mockReset();
+    getApps.mockReturnValue([]);
+    initializeApp.mockReset();
+    initializeApp.mockReturnValue({});
+    cert.mockReset();
+    cert.mockImplementation((v: unknown) => v);
+    delete process.env.FIREBASE_SERVICE_ACCOUNT;
+    delete process.env.FIREBASE_PROJECT_ID;
+    process.env.ALLOWED_EMAILS = "ok@example.com";
+    verifyIdToken.mockResolvedValue({ uid: "u1", email: "ok@example.com" });
+  });
+
+  afterAll(() => {
+    process.env = saved;
+  });
+
+  it("FIREBASE_PROJECT_ID だけなら projectId で初期化し、資格情報は渡さない", async () => {
+    process.env.FIREBASE_PROJECT_ID = "shared-project";
+    const { requireAuth: fresh } = await loadFresh();
+    await expect(fresh("Bearer sometoken")).resolves.toEqual({
+      uid: "u1",
+      email: "ok@example.com",
+    });
+    expect(initializeApp).toHaveBeenCalledWith({ projectId: "shared-project" });
+    expect(cert).not.toHaveBeenCalled();
+  });
+
+  it("FIREBASE_SERVICE_ACCOUNT があれば従来どおり cert で初期化する(PROJECT_ID より優先)", async () => {
+    process.env.FIREBASE_SERVICE_ACCOUNT = JSON.stringify({
+      project_id: "legacy",
+    });
+    process.env.FIREBASE_PROJECT_ID = "shared-project";
+    const { requireAuth: fresh } = await loadFresh();
+    await fresh("Bearer sometoken");
+    expect(cert).toHaveBeenCalledWith({ project_id: "legacy" });
+    expect(initializeApp).toHaveBeenCalledWith({
+      credential: { project_id: "legacy" },
+    });
+  });
+
+  it("どちらも無ければ設定エラー(AuthError ではない)で、401 にならない", async () => {
+    const { requireAuth: fresh, AuthError } = await loadFresh();
+    const err = await fresh("Bearer sometoken").catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect(err).not.toBeInstanceOf(AuthError);
+    expect((err as Error).message).toContain("FIREBASE_PROJECT_ID");
+    expect(verifyIdToken).not.toHaveBeenCalled();
   });
 });
