@@ -22,7 +22,7 @@
 ## 技術スタック（確定）
 
 - React 19 + Vite + TypeScript、react-router-dom、素の CSS（モバイルファースト）
-- Firebase Authentication（Google）+ Cloud Firestore（`users/{uid}/recipes`, `users/{uid}/techniques`）
+- Firebase Authentication（Google）+ Cloud Firestore（`users/{uid}/recipes`, `users/{uid}/techniques`）。Firebase は household-chore-manager と共有のプロジェクトで、Firestore ルールの正本は household-chore-manager の `firebase/`（このリポジトリからデプロイしない。`firebase/README.md` 参照）
 - Vercel（静的配信 + Functions `api/`）。`/api/arrange`・`/api/import-normalize`（整形）・`/api/import-classify`（分類。2026-09-28に整形から分離）が Gemini `gemini-3.6-flash` を呼ぶ
 - zod（AI 出力・API ボディ検証）、vitest
 
