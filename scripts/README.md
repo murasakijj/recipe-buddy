@@ -13,6 +13,9 @@
 
 前提: Firebase サービスアカウントJSON（`--service-account` か環境変数
 `FIREBASE_SERVICE_ACCOUNT`）と、移行先ユーザーのメールアドレス。
+サービスアカウントは**共有プロジェクト**（household-chore-manager と同じ）のものを使い、
+旧プロジェクトのものは使わない。共有プロジェクトのサービスアカウントは全アプリの
+データへの権限を持つので、取り扱いに注意すること（リポジトリに置かない）。
 
 ```
 node scripts/import-recipes.mjs --email you@gmail.com \

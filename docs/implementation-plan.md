@@ -8,7 +8,7 @@
 - [x] `vercel.json`（SPA rewrite + `/api` + COOP ヘッダー）、`.env.example`、`.gitignore`
 - [x] `api/_lib/types.ts`, `api/_lib/auth.ts`（+ テスト）, `api/auth-check.ts`
 - [x] `src/lib/firebase.ts`（auth + firestore）、`AuthContext`、`RequireAuth`、`Login`
-- [x] `firebase/firestore.rules`
+- [x] ~~`firebase/firestore.rules`~~（共有 Firebase プロジェクトへの統合に伴い削除。正本は household-chore-manager の `firebase/`。`firebase/README.md` 参照）
 
 受け入れ: ビルドとテストが通り、`/login` → Google ログイン → `/api/auth-check` 403 でアクセス拒否表示になる構造ができている。
 

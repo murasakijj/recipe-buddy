@@ -1,14 +1,16 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterAll } from "vitest";
 
-// firebase-admin をモックする。getApps が初期化済みアプリを返すことで、
-// getFirebaseApp が FIREBASE_SERVICE_ACCOUNT env を要求せず既存アプリを使う。
-const verifyIdToken = vi.fn();
-
-vi.mock("firebase-admin/app", () => ({
-  getApps: () => [{}],
+// firebase-admin をモックする。最初の describe では getApps が初期化済みアプリを返すので、
+// getFirebaseApp は Firebase 関連の env を見ずに既存アプリを使う(トークン/許可リスト判定のテスト)。
+// 初期化経路(FIREBASE_PROJECT_ID / FIREBASE_SERVICE_ACCOUNT)は後半の describe で検証する。
+const { verifyIdToken, getApps, initializeApp, cert } = vi.hoisted(() => ({
+  verifyIdToken: vi.fn(),
+  getApps: vi.fn(),
   initializeApp: vi.fn(),
   cert: vi.fn(),
 }));
+
+vi.mock("firebase-admin/app", () => ({ getApps, initializeApp, cert }));
 
 vi.mock("firebase-admin/auth", () => ({
   getAuth: () => ({ verifyIdToken }),
@@ -20,6 +22,8 @@ const { requireAuth } = await import("./auth.js");
 describe("requireAuth", () => {
   beforeEach(() => {
     verifyIdToken.mockReset();
+    getApps.mockReset();
+    getApps.mockReturnValue([{}]);
     process.env.ALLOWED_EMAILS = "ok@example.com, two@example.com";
   });
 
@@ -94,5 +98,87 @@ describe("requireAuth", () => {
       statusCode: 403,
       message: "forbidden",
     });
+  });
+});
+
+// getFirebaseApp は初期化結果をモジュール内にキャッシュするため、
+// 初期化経路のテストでは毎回モジュールを読み直す。
+describe("requireAuth: firebase-admin の初期化", () => {
+  const saved = { ...process.env };
+
+  async function loadFresh() {
+    vi.resetModules();
+    return await import("./auth.js");
+  }
+
+  beforeEach(() => {
+    verifyIdToken.mockReset();
+    getApps.mockReset();
+    getApps.mockReturnValue([]);
+    initializeApp.mockReset();
+    initializeApp.mockReturnValue({});
+    cert.mockReset();
+    cert.mockImplementation((v: unknown) => v);
+    delete process.env.FIREBASE_SERVICE_ACCOUNT;
+    delete process.env.FIREBASE_PROJECT_ID;
+    process.env.ALLOWED_EMAILS = "ok@example.com";
+    verifyIdToken.mockResolvedValue({ uid: "u1", email: "ok@example.com" });
+  });
+
+  afterAll(() => {
+    process.env = saved;
+  });
+
+  it("FIREBASE_PROJECT_ID だけなら projectId で初期化し、資格情報は渡さない", async () => {
+    process.env.FIREBASE_PROJECT_ID = "shared-project";
+    const { requireAuth: fresh } = await loadFresh();
+    await expect(fresh("Bearer sometoken")).resolves.toEqual({
+      uid: "u1",
+      email: "ok@example.com",
+    });
+    expect(initializeApp).toHaveBeenCalledWith({ projectId: "shared-project" });
+    expect(cert).not.toHaveBeenCalled();
+  });
+
+  it("FIREBASE_SERVICE_ACCOUNT だけなら従来どおり cert で初期化する", async () => {
+    process.env.FIREBASE_SERVICE_ACCOUNT = JSON.stringify({
+      project_id: "legacy",
+    });
+    const { requireAuth: fresh } = await loadFresh();
+    await fresh("Bearer sometoken");
+    expect(cert).toHaveBeenCalledWith({ project_id: "legacy" });
+    expect(initializeApp).toHaveBeenCalledWith({
+      credential: { project_id: "legacy" },
+    });
+  });
+
+  it("両方設定されていれば FIREBASE_PROJECT_ID を優先し、SA は無視して warn する(中身は出さない)", async () => {
+    process.env.FIREBASE_SERVICE_ACCOUNT = JSON.stringify({
+      project_id: "legacy",
+      private_key: "SECRET-KEY",
+    });
+    process.env.FIREBASE_PROJECT_ID = "shared-project";
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const { requireAuth: fresh } = await loadFresh();
+      await fresh("Bearer sometoken");
+      expect(initializeApp).toHaveBeenCalledWith({
+        projectId: "shared-project",
+      });
+      expect(cert).not.toHaveBeenCalled();
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(JSON.stringify(warn.mock.calls)).not.toContain("SECRET-KEY");
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("どちらも無ければ設定エラー(AuthError ではない)で、401 にならない", async () => {
+    const { requireAuth: fresh, AuthError } = await loadFresh();
+    const err = await fresh("Bearer sometoken").catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect(err).not.toBeInstanceOf(AuthError);
+    expect((err as Error).message).toContain("FIREBASE_PROJECT_ID");
+    expect(verifyIdToken).not.toHaveBeenCalled();
   });
 });
