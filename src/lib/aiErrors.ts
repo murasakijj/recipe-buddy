@@ -125,3 +125,8 @@ export function haltSummary(
   }
   return parts.filter((p) => p.length > 0).join(" ");
 }
+
+/** 分類が上限で中断し、一部のレシピが未判定のときの案内。 */
+export function unjudgedMessage(count: number, total: number): string {
+  return `${total}件中${count}件は未判定です（「カテゴリ・タグをもう一度判定」で後から判定できます）。`;
+}

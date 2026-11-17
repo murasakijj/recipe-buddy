@@ -7,6 +7,7 @@ import {
   isHaltingAiError,
   runUntilHalt,
   haltSummary,
+  unjudgedMessage,
 } from "./aiErrors";
 
 function apiLikeError(code: string, retryAfterSec?: number) {
@@ -137,6 +138,14 @@ describe("haltSummary", () => {
   it("処理済みが無ければ「なし」", () => {
     expect(haltSummary("rate_limited", undefined, [], ["a.md"])).toContain(
       "整形済み: なし。 未処理: a.md。",
+    );
+  });
+});
+
+describe("unjudgedMessage", () => {
+  it("件数と再判定の導線を示す", () => {
+    expect(unjudgedMessage(20, 45)).toBe(
+      "45件中20件は未判定です（「カテゴリ・タグをもう一度判定」で後から判定できます）。",
     );
   });
 });

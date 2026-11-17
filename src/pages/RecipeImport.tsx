@@ -12,6 +12,7 @@ import {
   haltSummary,
   rateLimitMessageFor,
   runUntilHalt,
+  unjudgedMessage,
 } from "../lib/aiErrors";
 import { parseRecipeTemplate, type ParsedRecipe } from "../lib/recipeMarkdown";
 import {
@@ -58,6 +59,14 @@ function errorMessageFor(code: string, retryAfterSec?: number): string {
 interface AiErrorState {
   code: string;
   retryAfterSec?: number;
+}
+
+/** 分類まわりの通知。上限で分類を呼ばなかった/途中で止めた場合の補足を持つ。 */
+interface ClassifyNotice extends AiErrorState {
+  /** 上限に達していたため分類自体を呼ばなかった(整形側で上限文言を出している)。 */
+  skipped?: boolean;
+  /** 上限で中断し、判定できなかったレシピ数。 */
+  unjudged?: { count: number; total: number };
 }
 
 function toAiErrorState(err: unknown): AiErrorState {
@@ -130,7 +139,7 @@ export default function RecipeImport() {
   // 整形とは別パスにしたため(docs/decisions.md「整形と分類を2パスに分けた」)、
   // 分類だけが失敗してもレシピの取り込み自体はブロックしない。
   const [classifying, setClassifying] = useState(false);
-  const [classifyError, setClassifyError] = useState<AiErrorState | null>(null);
+  const [classifyError, setClassifyError] = useState<ClassifyNotice | null>(null);
 
   // classifyAndMergeInto は分類結果を反映するためにtemplateTextを書き換えてから
   // reparse()するが、その一瞬(setTemplateTextの反映とreparseの間)にtemplateTextと
@@ -231,8 +240,15 @@ export default function RecipeImport() {
       (chunk, idx) => byChunk.get(idx) ?? chunk.map(() => null),
     );
     const lastFailure = outcome.failed[outcome.failed.length - 1];
-    const lastError: AiErrorState | null = outcome.halted
-      ? toAiErrorState(outcome.halted)
+    const unjudgedCount = outcome.unprocessed.reduce(
+      (sum, idx) => sum + chunks[idx].length,
+      0,
+    );
+    const lastError: ClassifyNotice | null = outcome.halted
+      ? {
+          ...toAiErrorState(outcome.halted),
+          unjudged: { count: unjudgedCount, total: targets.length },
+        }
       : lastFailure
         ? toAiErrorState(lastFailure.error)
         : null;
@@ -357,6 +373,7 @@ export default function RecipeImport() {
       setClassifyError({
         code: halt.code,
         retryAfterSec: halt.retryAfterSec,
+        skipped: true,
       });
       reparse(combined);
       return;
@@ -520,11 +537,7 @@ export default function RecipeImport() {
             onClick={() => void handleNormalize()}
             disabled={normalizing || classifying}
           >
-            {normalizing
-              ? "整形中…"
-              : classifying
-                ? "判定中…"
-                : "AIで整形して読み込む"}
+            {normalizing ? "整形中…" : classifying ? "判定中…" : "AIで整形して読み込む"}
           </button>
         </div>
       </section>
@@ -574,7 +587,11 @@ export default function RecipeImport() {
               className={classifyError ? "notice notice-warning" : "notice"}
               role={classifyError ? "alert" : undefined}
             >
-              {classifyError && (
+              {classifyError?.skipped && (
+                // 上限文言は整形側のalertに出しているので、ここでは繰り返さない。
+                <p>上限に達したため、カテゴリ・タグの判定は行っていません。</p>
+              )}
+              {classifyError && !classifyError.skipped && (
                 <>
                   <p>
                     カテゴリ・タグの自動設定に失敗しました。レシピ自体は取り込めています。
@@ -585,6 +602,14 @@ export default function RecipeImport() {
                       classifyError.retryAfterSec,
                     )}
                   </p>
+                  {classifyError.unjudged && (
+                    <p>
+                      {unjudgedMessage(
+                        classifyError.unjudged.count,
+                        classifyError.unjudged.total,
+                      )}
+                    </p>
+                  )}
                 </>
               )}
               <button
@@ -687,7 +712,9 @@ export default function RecipeImport() {
                 registering || isStale || classifying || selectableCount === 0
               }
             >
-              {registering ? "登録中…" : `選択した${selectableCount}件を登録`}
+              {registering
+                ? "登録中…"
+                : `選択した${selectableCount}件を登録`}
             </button>
           </div>
 

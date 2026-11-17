@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import type { ApiRequest, ApiResponse } from "./_lib/types.js";
-import { AiProviderError } from "./_lib/ai.js";
+import type { ApiRequest, ApiResponse } from "./types.js";
+import { AiProviderError } from "./ai.js";
 
-vi.mock("./_lib/auth.js", () => ({
+vi.mock("./auth.js", () => ({
   requireAuth: vi.fn(async () => ({})),
   AuthError: class AuthError extends Error {
     statusCode = 401;
@@ -10,19 +10,19 @@ vi.mock("./_lib/auth.js", () => ({
 }));
 
 const generate = vi.hoisted(() => vi.fn());
-vi.mock("./_lib/arrange/gemini.js", () => ({
+vi.mock("./arrange/gemini.js", () => ({
   generateArrangement: generate,
 }));
-vi.mock("./_lib/import/gemini.js", () => ({
+vi.mock("./import/gemini.js", () => ({
   generateNormalizedMarkdown: generate,
 }));
-vi.mock("./_lib/import/classify-gemini.js", () => ({
+vi.mock("./import/classify-gemini.js", () => ({
   generateClassification: generate,
 }));
 
-import arrange from "./arrange.js";
-import importNormalize from "./import-normalize.js";
-import importClassify from "./import-classify.js";
+import arrange from "../arrange.js";
+import importNormalize from "../import-normalize.js";
+import importClassify from "../import-classify.js";
 
 const recipe = {
   title: "t",

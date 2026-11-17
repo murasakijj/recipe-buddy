@@ -271,8 +271,7 @@ function raceWithDeadline<T>(promise: Promise<T>, ms: number): Promise<T> {
  */
 function isAbortLike(err: unknown): boolean {
   return (
-    err instanceof Error &&
-    (err.name === "AbortError" || err.name === "TimeoutError")
+    err instanceof Error && (err.name === "AbortError" || err.name === "TimeoutError")
   );
 }
 
@@ -290,16 +289,13 @@ function classifyFinalError(
   logTag: string,
   lastRetryableStatus: number | undefined,
   model: string | undefined,
-  lastRateLimit?: RateLimitInfo | null,
 ): AiProviderError {
   const mapped = toAiProviderError(err, logTag, model);
   if (isAbortLike(err) && lastRetryableStatus !== undefined) {
+    // 待機後のリトライがデッドラインで打ち切られた場合、待機前の retryDelay は
+    // もう当てにならないので retryAfterSec は付けない(2026-11-17)。
     if (lastRetryableStatus === 429) {
-      return new AiProviderError(
-        429,
-        "rate_limited",
-        retryAfterSecOf(lastRateLimit ?? null),
-      );
+      return new AiProviderError(429, "rate_limited");
     }
     return new AiProviderError(mapped.statusCode, "overloaded");
   }
@@ -379,7 +375,6 @@ export async function callGeminiWithRetry<T>(
   // 直近に観測した429/503。デッドライン中断で分類を落とさないために覚えておく
   // (classifyFinalError参照。再レビューN3)。
   let lastRetryableStatus: number | undefined;
-  let lastRateLimit: RateLimitInfo | null = null;
 
   for (let i = 0; i < MAX_ATTEMPTS; i++) {
     const remaining = deadlineMs - (now() - startedAt);
@@ -389,53 +384,32 @@ export async function callGeminiWithRetry<T>(
         logTag,
         lastRetryableStatus,
         model,
-        lastRateLimit,
       );
     }
 
     try {
-      return await raceWithDeadline(
-        attempt(AbortSignal.timeout(remaining)),
-        remaining,
-      );
+      return await raceWithDeadline(attempt(AbortSignal.timeout(remaining)), remaining);
     } catch (err) {
       lastErr = err;
       const status = statusOf(err);
-      const isRetryable =
-        status !== undefined && RETRYABLE_STATUSES.has(status);
+      const isRetryable = status !== undefined && RETRYABLE_STATUSES.has(status);
       if (isRetryable) {
         lastRetryableStatus = status;
       }
       const rateLimit = status === 429 ? parseRateLimitInfo(err) : null;
-      if (rateLimit) {
-        lastRateLimit = rateLimit;
-      }
       const isLastAttempt = i === MAX_ATTEMPTS - 1;
       // 1日上限(PerDay)は待っても回復しないのでリトライしない(2026-11-17)。
       if (!isRetryable || isLastAttempt || rateLimit?.isDaily) {
-        throw classifyFinalError(
-          err,
-          logTag,
-          lastRetryableStatus,
-          model,
-          lastRateLimit,
-        );
+        throw classifyFinalError(err, logTag, lastRetryableStatus, model);
       }
 
       const remainingAfterFailure = deadlineMs - (now() - startedAt);
       if (remainingAfterFailure < MIN_REMAINING_MS_FOR_RETRY) {
-        throw classifyFinalError(
-          err,
-          logTag,
-          lastRetryableStatus,
-          model,
-          lastRateLimit,
-        );
+        throw classifyFinalError(err, logTag, lastRetryableStatus, model);
       }
 
       const backoff =
-        BACKOFF_SCHEDULE_MS[i] ??
-        BACKOFF_SCHEDULE_MS[BACKOFF_SCHEDULE_MS.length - 1];
+        BACKOFF_SCHEDULE_MS[i] ?? BACKOFF_SCHEDULE_MS[BACKOFF_SCHEDULE_MS.length - 1];
       const jitter = Math.floor(Math.random() * JITTER_MAX_MS);
 
       // 分単位の429でRetryInfoがある場合は、max(既存バックオフ, retryDelay) だけ待つ。
@@ -448,13 +422,7 @@ export async function callGeminiWithRetry<T>(
           remainingAfterFailure - waitForRetryMs <
           MIN_REMAINING_MS_FOR_RETRY
         ) {
-          throw classifyFinalError(
-            err,
-            logTag,
-            lastRetryableStatus,
-            model,
-            lastRateLimit,
-          );
+          throw classifyFinalError(err, logTag, lastRetryableStatus, model);
         }
         console.error(
           `[${logTag}] gemini retry ${i + 1}/${MAX_ATTEMPTS - 1} after 429 (waiting ${waitForRetryMs}ms)`,
@@ -480,11 +448,5 @@ export async function callGeminiWithRetry<T>(
   }
 
   // 上のループは必ずreturn/throwで抜けるが、TSの制御フロー解析のため明示しておく。
-  throw classifyFinalError(
-    lastErr,
-    logTag,
-    lastRetryableStatus,
-    model,
-    lastRateLimit,
-  );
+  throw classifyFinalError(lastErr, logTag, lastRetryableStatus, model);
 }
