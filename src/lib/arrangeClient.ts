@@ -1,4 +1,4 @@
-import { authHeader, ApiError, readError } from "./apiClient";
+import { authHeader, apiErrorFromResponse } from "./apiClient";
 import type { ArrangedRecipe } from "./types";
 
 /** POST /api/arrange のリクエストボディ recipe 部分(docs/api.md)。 */
@@ -34,7 +34,7 @@ export async function requestArrangement(
     body: JSON.stringify({ recipe, techniques, request }),
   });
   if (!res.ok) {
-    throw new ApiError(res.status, await readError(res));
+    throw await apiErrorFromResponse(res);
   }
   return (await res.json()) as ArrangedRecipe;
 }
