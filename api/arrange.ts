@@ -7,7 +7,8 @@ import {
   arrangedRecipeSchema,
   sanitizeArrangedRecipe,
 } from "./_lib/arrange/schema.js";
-import { generateArrangement, AiProviderError } from "./_lib/arrange/gemini.js";
+import { generateArrangement } from "./_lib/arrange/gemini.js";
+import { AiProviderError, aiErrorBody } from "./_lib/ai.js";
 
 export default async function handler(
   req: ApiRequest,
@@ -41,7 +42,7 @@ export default async function handler(
       raw = await generateArrangement(parsedBody.data);
     } catch (err) {
       if (err instanceof AiProviderError) {
-        sendJson(res, err.statusCode, { error: err.message });
+        sendJson(res, err.statusCode, aiErrorBody(err));
         return;
       }
       throw err;

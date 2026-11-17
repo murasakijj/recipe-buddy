@@ -63,7 +63,7 @@
 
 - `steps[].instruction` は `[[techniqueId|語句]]` 記法を含んでよい。**サーバー側で、`techniques` に無い ID の参照は語句だけを残して除去する**（AI が実在しない ID を作らないように）。
 - `questions` が空でなくても生成結果は返す（decisions.md「注意付きで生成」）。
-- エラー: `502 {error:"upstream_error"|"rate_limited"|"overloaded"|"invalid_ai_output"}`。`invalid_ai_output` は AI の JSON がスキーマに合わなかった場合。`overloaded`（Geminiモデルの一時的な過負荷、下記「Gemini呼び出し」「共通」参照）はリトライ後もダメだった場合に返る。フロントは再試行を促し、入力は保持する（FR-09 / §11.4）。
+- エラー: `429 {error:"quota_exhausted"|"rate_limited", retryAfterSec?}`（Gemini の 429。下記「共通」のリトライ方針参照）、`502 {error:"upstream_error"|"overloaded"|"invalid_ai_output"}`。`invalid_ai_output` は AI の JSON がスキーマに合わなかった場合。`overloaded`（Geminiモデルの一時的な過負荷、下記「Gemini呼び出し」「共通」参照）はリトライ後もダメだった場合に返る。フロントは再試行を促し、入力は保持する（FR-09 / §11.4）。
 
 ### Gemini 呼び出し
 
@@ -118,7 +118,7 @@
 
 - `markdown` は下記「正規化テンプレート」の形式のみ。前置き・後置きの説明やコードフェンスは含まない。
 - `markdown` が空文字（AIが実質的に何も返さなかった場合）は `502 {error:"invalid_ai_output"}` として扱う（`importNormalizeResponseSchema` が `min(1)` で弾く）。
-- エラー: `502 {error:"upstream_error"|"rate_limited"|"overloaded"|"invalid_ai_output"}`。`overloaded`（Geminiモデルの一時的な過負荷）はリトライ後もダメだった場合に返る（下記「共通」参照）。フロントは整形結果のテキストエリアを（空でも）表示したまま残し、手直し・再試行を促す。
+- エラー: `429 {error:"quota_exhausted"|"rate_limited", retryAfterSec?}`（Gemini の 429。下記「共通」のリトライ方針参照）、`502 {error:"upstream_error"|"overloaded"|"invalid_ai_output"}`。`overloaded`（Geminiモデルの一時的な過負荷）はリトライ後もダメだった場合に返る（下記「共通」参照）。フロントは整形結果のテキストエリアを（空でも）表示したまま残し、手直し・再試行を促す。
 
 ### 正規化テンプレート
 
@@ -236,7 +236,7 @@ AIの整形結果やユーザーの手直しに多少のゆれがあっても情
 ```
 
 - `results` は `recipes` と**同じ順序・同じ件数**。件数が一致しない場合やAI出力がスキーマに合わない場合は `502 {error:"invalid_ai_output"}`。
-- エラー: `502 {error:"upstream_error"|"rate_limited"|"overloaded"|"invalid_ai_output"}`（下記「共通」のリトライ方針を適用）。フロントはレシピの取り込み自体はブロックせず、「カテゴリ・タグをもう一度判定」で分類だけ再試行できるようにする（`src/pages/RecipeImport.tsx`）。
+- エラー: `429 {error:"quota_exhausted"|"rate_limited", retryAfterSec?}`（Gemini の 429。下記「共通」のリトライ方針参照）、`502 {error:"upstream_error"|"overloaded"|"invalid_ai_output"}`（下記「共通」のリトライ方針を適用）。フロントはレシピの取り込み自体はブロックせず、「カテゴリ・タグをもう一度判定」で分類だけ再試行できるようにする（`src/pages/RecipeImport.tsx`）。
 
 ### 語彙のサーバー側強制（`api/_lib/import/classify-schema.ts`）
 
@@ -285,14 +285,26 @@ AIの整形結果やユーザーの手直しに多少のゆれがあっても情
 
 本番で Gemini から `503`（"This model is currently experiencing high demand" 等、モデル側の一時的な過負荷）が返るようになったことを受けて追加。`callGeminiWithRetry` が `arrange`・`import-normalize`・`import-classify` すべての `generateContent` 呼び出しをラップする。
 
-- リトライ対象は **429（レート制限）と503（過負荷）のみ**。400系やそれ以外の5xx、タイムアウト（`AbortError`/`TimeoutError`）、`invalid_ai_output`（JSONパース失敗・スキーマ不一致）はリトライしない（再試行しても直らないため。タイムアウトについては下記のデッドライン強制とあわせて参照）。
+- リトライ対象は **429（レート制限。ただし1日上限を除く。下記）と503（過負荷）のみ**。400系やそれ以外の5xx、タイムアウト（`AbortError`/`TimeoutError`）、`invalid_ai_output`（JSONパース失敗・スキーマ不一致）はリトライしない（再試行しても直らないため。タイムアウトについては下記のデッドライン強制とあわせて参照）。
 - 最大3回試行（初回＋リトライ2回）。バックオフは1回目のリトライ前が1秒、2回目のリトライ前が3秒（それぞれ0〜300msのジッターを加える）。
 - `TIMEOUT_MS`（50秒）は**Gemini呼び出し区間（初回＋リトライ＋バックオフの待機）だけのデッドライン**であり、Vercel Function呼び出し全体（コールドスタート、`requireAuth`の`verifyIdToken`、レスポンス送信を含む）のデッドラインではない。`maxDuration`（60秒）までの残り約10秒はこれらの前後処理の余裕分。各試行の`AbortSignal`には、呼び出し開始時刻からの残り時間を渡す。リトライ直前の残り時間が**12秒未満なら、リトライせずそのままエラーを返す**（次の試行がタイムアウトで終わるだけになるのを避けるため）。
   - `AbortSignal`はSDK側の協力が前提の仕組みであり、SDKが無視する・中断が遅れるとデッドラインの歯止めが無くなる（2026-09-28 レビューのシミュレーションで最大77秒＝Vercelの`FUNCTION_INVOCATION_TIMEOUT`(60秒)超過を確認）。そのため`callGeminiWithRetry`は各試行を、同じ残り時間で強制的に失敗させる`Promise.race`の競走タイマー（`raceWithDeadline`）とも競わせ、SDKの挙動に依らずデッドラインを保証する。
 - リトライを行ったことは `[<logTag>] gemini retry <試行番号>/2 after <ステータス>` の形でログに残す。APIキーやリクエスト本文はログに出さない。
-- エラーコードは `429`→`rate_limited`、`503`→`overloaded`、それ以外→`upstream_error`。`overloaded`は「接続はできているがモデル側が混雑している」状態であり、`upstream_error`（接続できない）と文言を分ける（フロント側の案内文は `src/pages/ArrangeInput.tsx` / `src/pages/RecipeImport.tsx` の `ERROR_MESSAGES`）。分類は`instanceof`ではなくエラーオブジェクトの`status`（duck-typing）で判定し、リトライ可否の判定と基準を一本化している。また、直前の試行で429/503を観測していた場合、その次のリトライがデッドラインで打ち切られて`AbortError`/`TimeoutError`になっても、`upstream_error`ではなく観測していたステータスの分類（`overloaded`/`rate_limited`）を優先する（過負荷の実態が「接続できない」という誤った文言に落ちないようにするため）。
+- エラーコードは `429`→`quota_exhausted`（1日上限）または`rate_limited`、`503`→`overloaded`、それ以外→`upstream_error`。HTTPステータスは`quota_exhausted`/`rate_limited`が **429**、それ以外のAIエラーは従来どおり502。`overloaded`は「接続はできているがモデル側が混雑している」状態であり、`upstream_error`（接続できない）と文言を分ける（フロント側の案内文は `src/pages/ArrangeInput.tsx` / `src/pages/RecipeImport.tsx` の `ERROR_MESSAGES`。ただし `quota_exhausted` / `rate_limited` の案内文は `src/lib/aiErrors.ts` に置き、両画面から使う）。分類は`instanceof`ではなくエラーオブジェクトの`status`（duck-typing）で判定し、リトライ可否の判定と基準を一本化している。また、直前の試行で429/503を観測していた場合、その次のリトライがデッドラインで打ち切られて`AbortError`/`TimeoutError`になっても、`upstream_error`ではなく観測していたステータスの分類（`overloaded`/`rate_limited`）を優先する（過負荷の実態が「接続できない」という誤った文言に落ちないようにするため）。
 - `rate_limited`（利用量側の問題）と`overloaded`（モデル側の混雑）は文言を明確に書き分ける（「AIの利用上限に達した可能性があります」/「AIが混み合っています」）。
 - リトライ対象は429/503のみで、500/502/504等は対象外（実運用でこれらが頻発するようなら追加を検討する）。
+
+#### 429の解析とリトライ方針（2026-11-17、api/_lib/ai.ts の `parseRateLimitInfo`）
+
+本番で無料枠の1日上限（プロジェクト×モデルごとに1日20回）に達したのに 429 を最大2回リトライして無駄に呼んでいたため、429を種類別に扱う。
+
+- `@google/genai` の `ApiError` は `status` と `message` しか持たず、`message` は上流レスポンスを `JSON.stringify` した文字列（`{"error":{"code":429,"details":[...]}}`）。これをパースして `details` の `QuotaFailure.violations[].quotaId` と `RetryInfo.retryDelay`（`"30367s"`・`"7.5s"` 形式）を取り出す。パースできない・想定外の形は「解析不能」。
+- `quotaId` に `PerDay` を含む → **1日上限。リトライしない**。`quota_exhausted`（HTTP 429）を返し、`RetryInfo` があれば `retryAfterSec`（秒の切り上げ整数）を付ける。
+- それ以外の 429 で `retryDelay` がある → 待機時間を `max(既存バックオフ, retryDelay)` とする。待機後の残りデッドラインが `MIN_REMAINING_MS_FOR_RETRY`（12秒）を切るならリトライせず、`rate_limited` と `retryAfterSec` を返す。収まるなら待ってリトライ（その後のリトライがデッドラインで打ち切られた場合は、待機前の値が古くなるため `retryAfterSec` を付けない）。
+- 解析不能な 429 → 従来どおり（最大2回リトライ、最終的に `rate_limited`、`retryAfterSec` なし）。503の扱いは変更なし。
+- レスポンスは `{ error, retryAfterSec? }`。`AiProviderError.retryAfterSec` で伝え、3エンドポイント共通で `aiErrorBody()` が組み立てる。
+- ログは分類できた場合、モデル名・status・分類・`quotaIds`・`retryAfterSec` のみ（`message` 全文は出さない）。解析不能なときだけ従来どおり全文を出す。
+- フロント: `quota_exhausted` は「本日のAI利用回数の上限（無料枠）に達しました。約◯時間◯分後に再度お試しください。」（`retryAfterSec` が無ければ「しばらく時間をおいて」）、`rate_limited` は既存文言に「約◯秒後」を添える（`src/lib/aiErrors.ts`）。Markdown取り込みでは、どちらかを受けた時点で以降のAI呼び出し（残りのファイル整形・分類）を止め、整形済み・未処理のファイル名を表示する（整形で止まった場合は分類を呼ばず、分類側は「上限に達したため、カテゴリ・タグの判定は行っていません」とだけ出す。分類のチャンクで止まった場合は「◯件中◯件は未判定」を出す）。成功済みの結果は捨てず、自動で待って再開はしない。
 
 ### 診断ログ（2026-09-29、api/_lib/ai.ts）
 

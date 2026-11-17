@@ -1,6 +1,12 @@
 import { describe, it, expect, vi } from "vitest";
 import { ApiError as GenAiApiError } from "@google/genai";
-import { callGeminiWithRetry, toAiProviderError, AiProviderError } from "./ai.js";
+import {
+  callGeminiWithRetry,
+  toAiProviderError,
+  AiProviderError,
+  aiErrorBody,
+  parseRateLimitInfo,
+} from "./ai.js";
 
 /** テスト用の即時解決sleep(実際には待たない。呼び出し回数・引数だけ記録する)。 */
 function fakeSleep(): { sleep: (ms: number) => Promise<void>; calls: number[] } {
@@ -145,7 +151,7 @@ describe("callGeminiWithRetry", () => {
         now: fakeClock(1_000),
       }),
     ).rejects.toMatchObject({
-      statusCode: 502,
+      statusCode: 429,
       message: "rate_limited",
     });
     expect(attempt).toHaveBeenCalledTimes(3);
@@ -320,5 +326,305 @@ describe("callGeminiWithRetry", () => {
       }),
     ).rejects.toMatchObject({ statusCode: 502, message: "overloaded" });
     expect(attempt).toHaveBeenCalledTimes(2);
+  });
+});
+
+/** 本番ログ(2026-11-17)と同じ形の429。message は上流レスポンスをJSON.stringifyしたもの。 */
+function quotaError(opts: {
+  quotaId?: string;
+  retryDelay?: string;
+  noDetails?: boolean;
+}): GenAiApiError {
+  const details: unknown[] = [
+    { "@type": "type.googleapis.com/google.rpc.Help", links: [] },
+  ];
+  if (opts.quotaId) {
+    details.push({
+      "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+      violations: [
+        {
+          quotaMetric:
+            "generativelanguage.googleapis.com/generate_content_free_tier_requests",
+          quotaId: opts.quotaId,
+          quotaDimensions: { location: "global", model: "gemini-3.6-flash" },
+          quotaValue: "20",
+        },
+      ],
+    });
+  }
+  if (opts.retryDelay) {
+    details.push({
+      "@type": "type.googleapis.com/google.rpc.RetryInfo",
+      retryDelay: opts.retryDelay,
+    });
+  }
+  return new GenAiApiError({
+    message: JSON.stringify({
+      error: {
+        code: 429,
+        message: "You exceeded your current quota",
+        status: "RESOURCE_EXHAUSTED",
+        ...(opts.noDetails ? {} : { details }),
+      },
+    }),
+    status: 429,
+  });
+}
+
+const DAILY = "GenerateRequestsPerDayPerProjectPerModel-FreeTier";
+const PER_MINUTE = "GenerateRequestsPerMinutePerProjectPerModel-FreeTier";
+
+describe("parseRateLimitInfo", () => {
+  it("日次上限: quotaId と retryDelay を取り出し isDaily になる", () => {
+    expect(
+      parseRateLimitInfo(quotaError({ quotaId: DAILY, retryDelay: "30367s" })),
+    ).toEqual({
+      quotaIds: [DAILY],
+      retryDelaySec: 30367,
+      isDaily: true,
+    });
+  });
+
+  it("分単位: isDaily が false", () => {
+    expect(
+      parseRateLimitInfo(
+        quotaError({ quotaId: PER_MINUTE, retryDelay: "12s" }),
+      ),
+    ).toEqual({
+      quotaIds: [PER_MINUTE],
+      retryDelaySec: 12,
+      isDaily: false,
+    });
+  });
+
+  it("RetryInfo が無ければ retryDelaySec は undefined", () => {
+    const info = parseRateLimitInfo(quotaError({ quotaId: DAILY }));
+    expect(info?.isDaily).toBe(true);
+    expect(info?.retryDelaySec).toBeUndefined();
+  });
+
+  it("小数秒を扱える", () => {
+    expect(
+      parseRateLimitInfo(
+        quotaError({ quotaId: PER_MINUTE, retryDelay: "7.5s" }),
+      )?.retryDelaySec,
+    ).toBe(7.5);
+  });
+
+  it("不正なJSON・details無し・想定外の形は null", () => {
+    expect(parseRateLimitInfo(rateLimitedError())).toBeNull();
+    expect(parseRateLimitInfo(quotaError({ noDetails: true }))).toBeNull();
+    expect(
+      parseRateLimitInfo(new GenAiApiError({ message: "[1,2]", status: 429 })),
+    ).toBeNull();
+    expect(parseRateLimitInfo(undefined)).toBeNull();
+    expect(parseRateLimitInfo({ message: 42 })).toBeNull();
+  });
+
+  it("retryDelay の形式が不正なら無視する", () => {
+    expect(
+      parseRateLimitInfo(
+        quotaError({ quotaId: PER_MINUTE, retryDelay: "soon" }),
+      )?.retryDelaySec,
+    ).toBeUndefined();
+  });
+});
+
+describe("toAiProviderError (429の分類)", () => {
+  it("日次上限は quota_exhausted(429)で retryAfterSec が付く", () => {
+    const err = toAiProviderError(
+      quotaError({ quotaId: DAILY, retryDelay: "30366.2s" }),
+      "test",
+    );
+    expect(err).toMatchObject({
+      statusCode: 429,
+      message: "quota_exhausted",
+      retryAfterSec: 30367,
+    });
+    expect(aiErrorBody(err)).toEqual({
+      error: "quota_exhausted",
+      retryAfterSec: 30367,
+    });
+  });
+
+  it("解析不能な429は rate_limited(retryAfterSec なし)", () => {
+    const err = toAiProviderError(rateLimitedError(), "test");
+    expect(err.retryAfterSec).toBeUndefined();
+    expect(aiErrorBody(err)).toEqual({ error: "rate_limited" });
+  });
+
+  it("ログに message 全文を出さない(分類済みの場合)", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    toAiProviderError(
+      quotaError({ quotaId: DAILY, retryDelay: "30367s" }),
+      "test",
+      "m",
+    );
+    const logged = JSON.stringify(spy.mock.calls);
+    expect(logged).toContain(DAILY);
+    expect(logged).not.toContain("You exceeded");
+    spy.mockRestore();
+  });
+});
+
+describe("callGeminiWithRetry (429の方針)", () => {
+  it("日次上限は1回で終わり、sleepされない", async () => {
+    const { sleep, calls } = fakeSleep();
+    const attempt = vi.fn(async () => {
+      throw quotaError({ quotaId: DAILY, retryDelay: "30367s" });
+    });
+    await expect(
+      callGeminiWithRetry(attempt, {
+        logTag: "test",
+        sleep,
+        now: fakeClock(1_000),
+      }),
+    ).rejects.toMatchObject({
+      statusCode: 429,
+      message: "quota_exhausted",
+      retryAfterSec: 30367,
+    });
+    expect(attempt).toHaveBeenCalledTimes(1);
+    expect(calls).toEqual([]);
+  });
+
+  it("分単位で retryDelay が収まるなら、retryDelay 以上待ってリトライする", async () => {
+    const { sleep, calls } = fakeSleep();
+    let n = 0;
+    const attempt = vi.fn(async () => {
+      if (n++ === 0)
+        throw quotaError({ quotaId: PER_MINUTE, retryDelay: "10.2s" });
+      return "ok";
+    });
+    await expect(
+      callGeminiWithRetry(attempt, {
+        logTag: "test",
+        sleep,
+        now: fakeClock(1_000),
+      }),
+    ).resolves.toBe("ok");
+    expect(attempt).toHaveBeenCalledTimes(2);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toBe(10_200);
+  });
+
+  it("retryDelay が既存バックオフより短ければバックオフを使う", async () => {
+    const { sleep, calls } = fakeSleep();
+    let n = 0;
+    const attempt = vi.fn(async () => {
+      if (n++ === 0)
+        throw quotaError({ quotaId: PER_MINUTE, retryDelay: "0.1s" });
+      return "ok";
+    });
+    await callGeminiWithRetry(attempt, {
+      logTag: "test",
+      sleep,
+      now: fakeClock(1_000),
+    });
+    expect(calls[0]).toBeGreaterThanOrEqual(1_000);
+  });
+
+  it("retryDelay が残りデッドラインに収まらなければ待たずに rate_limited を返す", async () => {
+    const { sleep, calls } = fakeSleep();
+    const attempt = vi.fn(async () => {
+      throw quotaError({ quotaId: PER_MINUTE, retryDelay: "40s" });
+    });
+    await expect(
+      callGeminiWithRetry(attempt, {
+        logTag: "test",
+        sleep,
+        now: fakeClock(1_000),
+      }),
+    ).rejects.toMatchObject({
+      statusCode: 429,
+      message: "rate_limited",
+      retryAfterSec: 40,
+    });
+    expect(attempt).toHaveBeenCalledTimes(1);
+    expect(calls).toEqual([]);
+  });
+
+  it("待機後の残りがちょうど MIN_REMAINING(12秒)ならリトライする(境界)", async () => {
+    const { sleep, calls } = fakeSleep();
+    let n = 0;
+    const attempt = vi.fn(async () => {
+      if (n++ === 0)
+        throw quotaError({ quotaId: PER_MINUTE, retryDelay: "20s" });
+      return "ok";
+    });
+    // now: 開始0 → 試行前残り計算(0) → 失敗後(18_000): 残り32_000 - 20_000 = 12_000
+    const now = scriptedClock([0, 0, 18_000, 18_000, 18_000]);
+    await expect(
+      callGeminiWithRetry(attempt, { logTag: "test", sleep, now }),
+    ).resolves.toBe("ok");
+    expect(calls).toEqual([20_000]);
+  });
+
+  it("解析不能な429は従来どおり最大3回試行する", async () => {
+    const { sleep, calls } = fakeSleep();
+    const attempt = vi.fn(async () => {
+      throw rateLimitedError();
+    });
+    await expect(
+      callGeminiWithRetry(attempt, {
+        logTag: "test",
+        sleep,
+        now: fakeClock(1_000),
+      }),
+    ).rejects.toMatchObject({ statusCode: 429, message: "rate_limited" });
+    expect(attempt).toHaveBeenCalledTimes(3);
+    expect(calls).toHaveLength(2);
+  });
+});
+
+/** 本番で実際に返った429の message(2026-11-17。Vercelログより)。 */
+const REAL_DAILY_429_MESSAGE =
+  '{"error":{"code":429,"message":"You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://aistudio.google.com/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.6-flash, description: Generate content requests per day limit exceeded on Free Tier. See https://aistudio.google.com/docs/rate-limits.\\nPlease retry in 8h26m7.569219301s.","status":"RESOURCE_EXHAUSTED","details":[{"@type":"type.googleapis.com/google.rpc.Help","links":[{"description":"Learn more about Gemini API quotas","url":"https://aistudio.google.com/docs/rate-limits"}]},{"@type":"type.googleapis.com/google.rpc.QuotaFailure","violations":[{"description":"Generate content requests per day limit exceeded on Free Tier. See https://aistudio.google.com/docs/rate-limits.","quotaMetric":"generativelanguage.googleapis.com/generate_content_free_tier_requests","quotaId":"GenerateRequestsPerDayPerProjectPerModel-FreeTier","quotaDimensions":{"location":"global","model":"gemini-3.6-flash"},"quotaValue":"20"}]},{"@type":"type.googleapis.com/google.rpc.RetryInfo","retryDelay":"30367s"}]}}';
+
+describe("実際の429 message(本番ログ)", () => {
+  const realError = () => new GenAiApiError({ message: REAL_DAILY_429_MESSAGE, status: 429 });
+
+  it("parseRateLimitInfo: 日次上限・retryDelay 30367秒", () => {
+    expect(parseRateLimitInfo(realError())).toEqual({
+      quotaIds: ["GenerateRequestsPerDayPerProjectPerModel-FreeTier"],
+      retryDelaySec: 30367,
+      isDaily: true,
+    });
+  });
+
+  it("toAiProviderError: quota_exhausted / retryAfterSec 30367", () => {
+    expect(toAiProviderError(realError(), "test")).toMatchObject({
+      statusCode: 429,
+      message: "quota_exhausted",
+      retryAfterSec: 30367,
+    });
+  });
+
+  it("callGeminiWithRetry: 1回で終わり sleep されない", async () => {
+    const { sleep, calls } = fakeSleep();
+    const attempt = vi.fn(async () => {
+      throw realError();
+    });
+    await expect(
+      callGeminiWithRetry(attempt, { logTag: "test", sleep, now: fakeClock(1_000) }),
+    ).rejects.toMatchObject({ message: "quota_exhausted", retryAfterSec: 30367 });
+    expect(attempt).toHaveBeenCalledTimes(1);
+    expect(calls).toEqual([]);
+  });
+});
+
+describe("retryDelay待機後のリトライがデッドラインで打ち切られた場合", () => {
+  it("rate_limited を返し、retryAfterSec は付けない", async () => {
+    const { sleep } = fakeSleep();
+    let n = 0;
+    const attempt = vi.fn(async () => {
+      if (n++ === 0) throw quotaError({ quotaId: PER_MINUTE, retryDelay: "10s" });
+      throw timeoutError();
+    });
+    await expect(
+      callGeminiWithRetry(attempt, { logTag: "test", sleep, now: fakeClock(1_000) }),
+    ).rejects.toSatisfy(
+      (e: AiProviderError) => e.message === "rate_limited" && e.retryAfterSec === undefined,
+    );
   });
 });

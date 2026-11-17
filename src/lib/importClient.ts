@@ -1,4 +1,4 @@
-import { authHeader, ApiError, readError } from "./apiClient";
+import { authHeader, ApiError, apiErrorFromResponse } from "./apiClient";
 import type { ClassifiedMetadata } from "./recipeMetadataMerge";
 
 /**
@@ -13,7 +13,7 @@ export async function normalizeMarkdown(markdown: string): Promise<string> {
     body: JSON.stringify({ markdown }),
   });
   if (!res.ok) {
-    throw new ApiError(res.status, await readError(res));
+    throw await apiErrorFromResponse(res);
   }
   const data = (await res.json()) as { markdown: string };
   return data.markdown;
@@ -41,7 +41,7 @@ export async function classifyRecipes(
     body: JSON.stringify({ recipes }),
   });
   if (!res.ok) {
-    throw new ApiError(res.status, await readError(res));
+    throw await apiErrorFromResponse(res);
   }
   const data = (await res.json()) as { results: ClassifiedMetadata[] };
   // 件数がズレたまま返すと、呼び出し側(RecipeImport.tsx)で結果を順番に

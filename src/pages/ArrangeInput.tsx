@@ -6,13 +6,12 @@ import { useTechniques } from "../contexts/useTechniques";
 import { requestArrangement } from "../lib/arrangeClient";
 import { loadArrangeSession, saveArrangeSession } from "../lib/arrangeSession";
 import { ApiError } from "../lib/apiClient";
+import { rateLimitMessageFor } from "../lib/aiErrors";
 import { stripMarkers } from "../lib/techniqueMarkup";
 
 const ERROR_MESSAGES: Record<string, string> = {
   empty_request: "今日の状況を入力してください。",
   invalid_body: "入力内容を確認してください。",
-  rate_limited:
-    "AIの利用上限に達した可能性があります。しばらくしてから再試行してください。",
   overloaded:
     "AIが混み合っています。1〜2分おいてから再試行してください。",
   invalid_ai_output:
@@ -34,8 +33,12 @@ const ERROR_MESSAGES: Record<string, string> = {
 /** ERROR_MESSAGESに無いコード用の汎用メッセージ。ネットワーク断とは区別する。 */
 const GENERIC_ERROR_MESSAGE = "生成に失敗しました。再試行してください。";
 
-function errorMessageFor(code: string): string {
-  return ERROR_MESSAGES[code] ?? GENERIC_ERROR_MESSAGE;
+function errorMessageFor(code: string, retryAfterSec?: number): string {
+  return (
+    rateLimitMessageFor(code, retryAfterSec) ??
+    ERROR_MESSAGES[code] ??
+    GENERIC_ERROR_MESSAGE
+  );
 }
 
 const REQUEST_MAX_LENGTH = 2000;
@@ -53,6 +56,7 @@ export default function ArrangeInput() {
   );
   const [submitting, setSubmitting] = useState(false);
   const [errorCode, setErrorCode] = useState<string | null>(null);
+  const [retryAfterSec, setRetryAfterSec] = useState<number | undefined>();
 
   if (!id) {
     return <Navigate to="/" replace />;
@@ -70,6 +74,7 @@ export default function ArrangeInput() {
 
     setSubmitting(true);
     setErrorCode(null);
+    setRetryAfterSec(undefined);
     try {
       const result = await requestArrangement(
         {
@@ -102,6 +107,7 @@ export default function ArrangeInput() {
         createdAt: previous?.createdAt ?? new Date().toISOString(),
       });
       setErrorCode(err instanceof ApiError ? err.message : "network");
+      setRetryAfterSec(err instanceof ApiError ? err.retryAfterSec : undefined);
       setSubmitting(false);
     }
   }
@@ -126,7 +132,9 @@ export default function ArrangeInput() {
     );
   }
 
-  const errorMessage = errorCode ? errorMessageFor(errorCode) : null;
+  const errorMessage = errorCode
+    ? errorMessageFor(errorCode, retryAfterSec)
+    : null;
 
   return (
     <AppShell>

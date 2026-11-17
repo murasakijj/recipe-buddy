@@ -1,7 +1,7 @@
 import type { ApiRequest, ApiResponse } from "./_lib/types.js";
 import { requireAuth, AuthError } from "./_lib/auth.js";
 import { sendJson, readJsonBody } from "./_lib/http.js";
-import { AiProviderError } from "./_lib/ai.js";
+import { AiProviderError, aiErrorBody } from "./_lib/ai.js";
 import {
   importNormalizeRequestSchema,
   importNormalizeResponseSchema,
@@ -40,7 +40,7 @@ export default async function handler(
       raw = await generateNormalizedMarkdown(parsedBody.data.markdown);
     } catch (err) {
       if (err instanceof AiProviderError) {
-        sendJson(res, err.statusCode, { error: err.message });
+        sendJson(res, err.statusCode, aiErrorBody(err));
         return;
       }
       throw err;

@@ -8,6 +8,12 @@ import {
   type ClassifyRecipeInput,
 } from "../lib/importClient";
 import { ApiError } from "../lib/apiClient";
+import {
+  haltSummary,
+  rateLimitMessageFor,
+  runUntilHalt,
+  unjudgedMessage,
+} from "../lib/aiErrors";
 import { parseRecipeTemplate, type ParsedRecipe } from "../lib/recipeMarkdown";
 import {
   applyMetadataToTemplate,
@@ -21,10 +27,7 @@ const CLASSIFY_CHUNK_SIZE = 20;
 const ERROR_MESSAGES: Record<string, string> = {
   invalid_body:
     "入力内容を確認してください（1件あたりの文字数が長すぎる可能性があります）。",
-  rate_limited:
-    "AIの利用上限に達した可能性があります。しばらくしてから再試行してください。",
-  overloaded:
-    "AIが混み合っています。1〜2分おいてから再試行してください。",
+  overloaded: "AIが混み合っています。1〜2分おいてから再試行してください。",
   invalid_ai_output: "AIの応答を処理できませんでした。",
   upstream_error:
     "AIサービスに接続できませんでした。しばらくしてから再試行してください。",
@@ -44,8 +47,32 @@ const ERROR_MESSAGES: Record<string, string> = {
 
 const GENERIC_ERROR_MESSAGE = "整形に失敗しました。もう一度試してください。";
 
-function errorMessageFor(code: string): string {
-  return ERROR_MESSAGES[code] ?? GENERIC_ERROR_MESSAGE;
+function errorMessageFor(code: string, retryAfterSec?: number): string {
+  return (
+    rateLimitMessageFor(code, retryAfterSec) ??
+    ERROR_MESSAGES[code] ??
+    GENERIC_ERROR_MESSAGE
+  );
+}
+
+/** AI呼び出しの失敗(コード+あれば再試行までの秒数)。 */
+interface AiErrorState {
+  code: string;
+  retryAfterSec?: number;
+}
+
+/** 分類まわりの通知。上限で分類を呼ばなかった/途中で止めた場合の補足を持つ。 */
+interface ClassifyNotice extends AiErrorState {
+  /** 上限に達していたため分類自体を呼ばなかった(整形側で上限文言を出している)。 */
+  skipped?: boolean;
+  /** 上限で中断し、判定できなかったレシピ数。 */
+  unjudged?: { count: number; total: number };
+}
+
+function toAiErrorState(err: unknown): AiErrorState {
+  return err instanceof ApiError
+    ? { code: err.message, retryAfterSec: err.retryAfterSec }
+    : { code: "network" };
 }
 
 /** サーバー側(api/_lib/import/schema.ts)と同じ上限。 */
@@ -69,6 +96,14 @@ export default function RecipeImport() {
     null,
   );
   const [failedSources, setFailedSources] = useState<string[]>([]);
+  // 日次上限(quota_exhausted)・レート制限(rate_limited)で整形を途中で止めた場合の
+  // 表示用。成功済みの結果は捨てず、処理済み・未処理のファイル名を示す。
+  const [normalizeHalt, setNormalizeHalt] = useState<{
+    code: string;
+    retryAfterSec?: number;
+    processed: string[];
+    unprocessed: string[];
+  } | null>(null);
   // 一度でも「AIで整形して読み込む」を実行したか。整形が全滅して
   // templateTextが空のままでも、2段目(手直し用テキストエリア)は
   // 表示し続ける必要があるため、templateTextの有無とは別に管理する。
@@ -104,9 +139,7 @@ export default function RecipeImport() {
   // 整形とは別パスにしたため(docs/decisions.md「整形と分類を2パスに分けた」)、
   // 分類だけが失敗してもレシピの取り込み自体はブロックしない。
   const [classifying, setClassifying] = useState(false);
-  const [classifyErrorCode, setClassifyErrorCode] = useState<string | null>(
-    null,
-  );
+  const [classifyError, setClassifyError] = useState<ClassifyNotice | null>(null);
 
   // classifyAndMergeInto は分類結果を反映するためにtemplateTextを書き換えてから
   // reparse()するが、その一瞬(setTemplateTextの反映とreparseの間)にtemplateTextと
@@ -181,7 +214,7 @@ export default function RecipeImport() {
     }
 
     setClassifying(true);
-    setClassifyErrorCode(null);
+    setClassifyError(null);
     setProgress("カテゴリ・タグを判定中...");
 
     const targets: ClassifyRecipeInput[] = recipes.map((r) => ({
@@ -190,24 +223,39 @@ export default function RecipeImport() {
       steps: r.input.steps.map((s) => s.instruction),
     }));
 
-    const results: (ClassifiedMetadata | null)[] = [];
-    let lastErrorCode: string | null = null;
+    const chunks: ClassifyRecipeInput[][] = [];
     for (let i = 0; i < targets.length; i += CLASSIFY_CHUNK_SIZE) {
-      const chunk = targets.slice(i, i + CLASSIFY_CHUNK_SIZE);
-      try {
-        results.push(...(await classifyRecipes(chunk)));
-      } catch (err) {
-        console.error("[import] classify failed", err);
-        lastErrorCode = err instanceof ApiError ? err.message : "network";
-        // 失敗した分はnull(=そのレシピのメタデータは書き換えない)で埋め、
-        // 他のチャンクが成功していれば活かす。
-        results.push(...chunk.map(() => null));
-      }
+      chunks.push(targets.slice(i, i + CLASSIFY_CHUNK_SIZE));
     }
+    // 日次上限・レート制限を受けたら残りのチャンクは呼ばずに止める。
+    const outcome = await runUntilHalt(
+      chunks,
+      (chunk) => classifyRecipes(chunk),
+      (err) => console.error("[import] classify failed", err),
+    );
+    // 失敗・未処理の分はnull(=そのレシピのメタデータは書き換えない)で埋め、
+    // 成功したチャンクは活かす。
+    const byChunk = new Map(outcome.done.map((d) => [d.index, d.value]));
+    const results: (ClassifiedMetadata | null)[] = chunks.flatMap(
+      (chunk, idx) => byChunk.get(idx) ?? chunk.map(() => null),
+    );
+    const lastFailure = outcome.failed[outcome.failed.length - 1];
+    const unjudgedCount = outcome.unprocessed.reduce(
+      (sum, idx) => sum + chunks[idx].length,
+      0,
+    );
+    const lastError: ClassifyNotice | null = outcome.halted
+      ? {
+          ...toAiErrorState(outcome.halted),
+          unjudged: { count: unjudgedCount, total: targets.length },
+        }
+      : lastFailure
+        ? toAiErrorState(lastFailure.error)
+        : null;
 
     setProgress(null);
     setClassifying(false);
-    setClassifyErrorCode(lastErrorCode);
+    setClassifyError(lastError);
 
     const merged = applyMetadataToTemplate(text, results);
     setTemplateText(merged);
@@ -229,6 +277,7 @@ export default function RecipeImport() {
     setNormalizing(true);
     setNormalizeErrorCode(null);
     setFailedSources([]);
+    setNormalizeHalt(null);
     setProgress(null);
 
     const sources: { label: string; text: string }[] = [];
@@ -268,40 +317,67 @@ export default function RecipeImport() {
 
     setNormalizeAttempted(true);
 
-    const succeeded: string[] = [];
-    const failed: string[] = [...fileReadFailures];
-    let lastErrorCode: string | null = null;
-
     // 長い入力でAIの出力が途中で切れるのを避けるため、ファイルは1件ずつ順に呼ぶ
-    // (docs/decisions.md「Markdownインポート」)。
-    for (let i = 0; i < sources.length; i++) {
-      setProgress(
-        `${sources.length}件中${i + 1}件目を整形中...（${sources[i].label}）`,
-      );
-      try {
-        succeeded.push(await normalizeMarkdown(sources[i].text));
-      } catch (err) {
-        console.error("[import] normalize failed", sources[i].label, err);
-        failed.push(sources[i].label);
-        lastErrorCode = err instanceof ApiError ? err.message : "network";
-      }
-    }
+    // (docs/decisions.md「Markdownインポート」)。日次上限・レート制限を受けたら
+    // 以降のAI呼び出しは止める(自動で待って再開はしない。2026-11-17)。
+    const outcome = await runUntilHalt(
+      sources,
+      (source, i) => {
+        setProgress(
+          `${sources.length}件中${i + 1}件目を整形中...（${source.label}）`,
+        );
+        return normalizeMarkdown(source.text);
+      },
+      (err, i) =>
+        console.error("[import] normalize failed", sources[i].label, err),
+    );
+    const succeeded = outcome.done.map((d) => d.value);
+    const failed = [
+      ...fileReadFailures,
+      ...outcome.failed.map((f) => sources[f.index].label),
+    ];
+    const lastFailure = outcome.failed[outcome.failed.length - 1];
+    const lastErrorCode: string | null = lastFailure
+      ? toAiErrorState(lastFailure.error).code
+      : null;
+    const halt = outcome.halted
+      ? {
+          ...toAiErrorState(outcome.halted),
+          processed: outcome.done.map((d) => sources[d.index].label),
+          unprocessed: outcome.unprocessed.map((i) => sources[i].label),
+        }
+      : null;
 
     setProgress(null);
     setNormalizing(false);
     setFailedSources(failed);
+    setNormalizeHalt(halt);
 
     if (succeeded.length === 0) {
       // templateTextは書き換えない(再レビューR4)。1回目の整形に成功した後、
       // 手直ししてから再整形して全滅した場合に、手直し済みのテキストや
       // 前回の整形結果を消してしまうと復旧できなくなるため。
-      setNormalizeErrorCode(lastErrorCode ?? "empty_input");
+      setNormalizeErrorCode(
+        halt ? lastErrorCode : (lastErrorCode ?? "empty_input"),
+      );
       return;
     }
 
     // 複数ファイル分は空行で連結して1つのテンプレートとして編集・解析できるようにする。
     const combined = succeeded.join("\n\n");
     setTemplateText(combined);
+    if (halt) {
+      // 上限に達している以上、分類を呼んでも失敗するだけなので呼ばない。
+      // 整形済みの分はそのまま取り込めるようにし、分類は後から
+      // 「カテゴリ・タグをもう一度判定」で実行できる。
+      setClassifyError({
+        code: halt.code,
+        retryAfterSec: halt.retryAfterSec,
+        skipped: true,
+      });
+      reparse(combined);
+      return;
+    }
     // ローカル解析 → 分類API(まとめて1回、20件超は分割) → テンプレートへ反映 →
     // 再解析、の順で行う(docs/decisions.md「整形と分類を2パスに分けた」)。
     // 分類が失敗してもレシピ自体は取り込めるよう、classifyAndMergeInto内で
@@ -377,12 +453,25 @@ export default function RecipeImport() {
     : null;
   // 全滅時は「どのファイルが失敗したか」と「なぜ失敗したか」を1つのalertにまとめる
   // (別々に出すとrole="alert"が2つ並んでしまうため)。
-  const normalizeAlertMessage =
+  const normalizeFailureMessage =
     failedSources.length > 0
       ? `整形に失敗しました: ${failedSources.join("、")}${
           normalizeErrorMessage ? `（${normalizeErrorMessage}）` : ""
         }`
       : normalizeErrorMessage;
+  const normalizeAlertMessage =
+    [
+      normalizeFailureMessage,
+      normalizeHalt &&
+        haltSummary(
+          normalizeHalt.code,
+          normalizeHalt.retryAfterSec,
+          normalizeHalt.processed,
+          normalizeHalt.unprocessed,
+        ),
+    ]
+      .filter(Boolean)
+      .join(" ") || null;
 
   return (
     <AppShell>
@@ -495,15 +584,32 @@ export default function RecipeImport() {
             // 判定し直したい場合の導線として)常に表示する(再レビューB6)。
             // 失敗中だけ理由と警告色を added する。
             <div
-              className={classifyErrorCode ? "notice notice-warning" : "notice"}
-              role={classifyErrorCode ? "alert" : undefined}
+              className={classifyError ? "notice notice-warning" : "notice"}
+              role={classifyError ? "alert" : undefined}
             >
-              {classifyErrorCode && (
+              {classifyError?.skipped && (
+                // 上限文言は整形側のalertに出しているので、ここでは繰り返さない。
+                <p>上限に達したため、カテゴリ・タグの判定は行っていません。</p>
+              )}
+              {classifyError && !classifyError.skipped && (
                 <>
                   <p>
                     カテゴリ・タグの自動設定に失敗しました。レシピ自体は取り込めています。
                   </p>
-                  <p>{errorMessageFor(classifyErrorCode)}</p>
+                  <p>
+                    {errorMessageFor(
+                      classifyError.code,
+                      classifyError.retryAfterSec,
+                    )}
+                  </p>
+                  {classifyError.unjudged && (
+                    <p>
+                      {unjudgedMessage(
+                        classifyError.unjudged.count,
+                        classifyError.unjudged.total,
+                      )}
+                    </p>
+                  )}
                 </>
               )}
               <button
