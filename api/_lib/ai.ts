@@ -22,11 +22,26 @@ export const TIMEOUT_MS = 50_000;
 /** 各プロバイダ呼び出しが上流エラーを正規化して投げるための共通エラー型。money-lens api/_lib/ai/types.ts と同じ形。 */
 export class AiProviderError extends Error {
   statusCode: number;
+  /** 429系(quota_exhausted / rate_limited)で、再試行までの目安秒数が分かる場合のみ。 */
+  retryAfterSec?: number;
 
-  constructor(statusCode: number, message: string) {
+  constructor(statusCode: number, message: string, retryAfterSec?: number) {
     super(message);
     this.statusCode = statusCode;
+    if (retryAfterSec !== undefined) {
+      this.retryAfterSec = retryAfterSec;
+    }
   }
+}
+
+/** APIレスポンスのボディ(`{ error, retryAfterSec? }`)を作る。 */
+export function aiErrorBody(err: AiProviderError): {
+  error: string;
+  retryAfterSec?: number;
+} {
+  return err.retryAfterSec !== undefined
+    ? { error: err.message, retryAfterSec: err.retryAfterSec }
+    : { error: err.message };
 }
 
 export function getModel(): string {
@@ -47,12 +62,90 @@ function statusOf(err: unknown): number | undefined {
   return typeof status === "number" ? status : undefined;
 }
 
+/** 429エラーから読み取れた情報(parseRateLimitInfo)。 */
+export interface RateLimitInfo {
+  /** `QuotaFailure.violations[].quotaId`(例: "GenerateRequestsPerDayPerProjectPerModel-FreeTier")。 */
+  quotaIds: string[];
+  /** `RetryInfo.retryDelay`("30367s"・"8.5s"形式)を秒に直したもの。無ければ undefined。 */
+  retryDelaySec?: number;
+  /** quotaId に "PerDay" を含むものがある=1日上限(待っても当日中は回復しない)。 */
+  isDaily: boolean;
+}
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null;
+}
+
+/** "30367s" / "8.5s" 形式のdurationを秒にする。解釈できなければ undefined。 */
+function parseDurationSec(v: unknown): number | undefined {
+  if (typeof v !== "string") return undefined;
+  const m = /^(\d+(?:\.\d+)?)s$/.exec(v.trim());
+  if (!m) return undefined;
+  const n = Number(m[1]);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+/**
+ * 429エラーから QuotaFailure / RetryInfo を取り出す純粋関数。
+ * `@google/genai` の ApiError は `status` と `message` しか持たず、`message` は
+ * 上流レスポンスを `JSON.stringify` したもの(`{"error":{"code":429,"details":[...]}}`)。
+ * そのため `message` をJSONとしてパースする。パースできない・想定外の形なら
+ * 解析不能として null を返す(呼び出し側は従来どおりのリトライに倒す)。
+ * 該当する detail が1つも無い場合も null(quotaIds も retryDelay も取れない)。
+ */
+export function parseRateLimitInfo(err: unknown): RateLimitInfo | null {
+  const message = isRecord(err) ? err.message : undefined;
+  if (typeof message !== "string") return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(message);
+  } catch {
+    return null;
+  }
+  const details =
+    isRecord(parsed) && isRecord(parsed.error)
+      ? parsed.error.details
+      : undefined;
+  if (!Array.isArray(details)) return null;
+
+  const quotaIds: string[] = [];
+  let retryDelaySec: number | undefined;
+  for (const d of details) {
+    if (!isRecord(d)) continue;
+    const type = d["@type"];
+    if (typeof type !== "string") continue;
+    if (type.endsWith("QuotaFailure") && Array.isArray(d.violations)) {
+      for (const v of d.violations) {
+        if (isRecord(v) && typeof v.quotaId === "string")
+          quotaIds.push(v.quotaId);
+      }
+    } else if (type.endsWith("RetryInfo")) {
+      retryDelaySec = parseDurationSec(d.retryDelay) ?? retryDelaySec;
+    }
+  }
+  if (quotaIds.length === 0 && retryDelaySec === undefined) return null;
+  return {
+    quotaIds,
+    retryDelaySec,
+    isDaily: quotaIds.some((id) => id.includes("PerDay")),
+  };
+}
+
+/** retryDelay(秒)を、レスポンスに載せる整数秒(切り上げ)にする。 */
+function retryAfterSecOf(info: RateLimitInfo | null): number | undefined {
+  return info?.retryDelaySec !== undefined
+    ? Math.ceil(info.retryDelaySec)
+    : undefined;
+}
+
 /**
  * Gemini呼び出しの例外を `AiProviderError` に正規化する。
  * `logTag` はログの識別用プレフィックス(例: "arrange", "import-normalize")。
  * APIキーやリクエスト本文は出さず、原因追跡に必要な最小限だけ記録する。
  *
- * 429(レート制限)は "rate_limited"、503(モデル過負荷。2026-09-28 実際に発生した
+ * 429のうち1日上限(quotaId に PerDay を含む)は "quota_exhausted"、それ以外は
+ * "rate_limited"(いずれもHTTP 429。RetryInfo があれば retryAfterSec を付ける。
+ * 2026-11-17)。503(モデル過負荷。2026-09-28 実際に発生した
  * "This model is currently experiencing high demand" 等)は "overloaded" に分類する。
  * どちらも「接続はできている」状態であり、"upstream_error"(接続できない)とは
  * 文言を分ける(docs/api.md参照)。
@@ -72,6 +165,32 @@ export function toAiProviderError(
   model?: string,
 ): AiProviderError {
   const e = err as { name?: unknown; status?: unknown; message?: unknown };
+  const status = statusOf(err);
+
+  if (status === 429) {
+    // 分類できた場合は、巨大なJSON全文ではなく分類結果だけをログに残す。
+    const info = parseRateLimitInfo(err);
+    const retryAfterSec = retryAfterSecOf(info);
+    const code = info?.isDaily ? "quota_exhausted" : "rate_limited";
+    if (info) {
+      console.error(`[${logTag}] gemini 429`, {
+        model,
+        status,
+        classification: code,
+        quotaIds: info.quotaIds,
+        retryAfterSec,
+      });
+    } else {
+      console.error(`[${logTag}] gemini error`, {
+        model,
+        name: e?.name,
+        status,
+        message: e?.message,
+      });
+    }
+    return new AiProviderError(429, code, retryAfterSec);
+  }
+
   console.error(`[${logTag}] gemini error`, {
     model,
     name: e?.name,
@@ -79,10 +198,8 @@ export function toAiProviderError(
     message: e?.message,
   });
 
-  const status = statusOf(err);
   if (status !== undefined) {
-    const code =
-      status === 429 ? "rate_limited" : status === 503 ? "overloaded" : "upstream_error";
+    const code = status === 503 ? "overloaded" : "upstream_error";
     return new AiProviderError(502, code);
   }
   // AbortSignal.timeout() による中断は環境によって AbortError/TimeoutError
@@ -154,7 +271,8 @@ function raceWithDeadline<T>(promise: Promise<T>, ms: number): Promise<T> {
  */
 function isAbortLike(err: unknown): boolean {
   return (
-    err instanceof Error && (err.name === "AbortError" || err.name === "TimeoutError")
+    err instanceof Error &&
+    (err.name === "AbortError" || err.name === "TimeoutError")
   );
 }
 
@@ -172,11 +290,18 @@ function classifyFinalError(
   logTag: string,
   lastRetryableStatus: number | undefined,
   model: string | undefined,
+  lastRateLimit?: RateLimitInfo | null,
 ): AiProviderError {
   const mapped = toAiProviderError(err, logTag, model);
   if (isAbortLike(err) && lastRetryableStatus !== undefined) {
-    const code = lastRetryableStatus === 429 ? "rate_limited" : "overloaded";
-    return new AiProviderError(mapped.statusCode, code);
+    if (lastRetryableStatus === 429) {
+      return new AiProviderError(
+        429,
+        "rate_limited",
+        retryAfterSecOf(lastRateLimit ?? null),
+      );
+    }
+    return new AiProviderError(mapped.statusCode, "overloaded");
   }
   return mapped;
 }
@@ -254,6 +379,7 @@ export async function callGeminiWithRetry<T>(
   // 直近に観測した429/503。デッドライン中断で分類を落とさないために覚えておく
   // (classifyFinalError参照。再レビューN3)。
   let lastRetryableStatus: number | undefined;
+  let lastRateLimit: RateLimitInfo | null = null;
 
   for (let i = 0; i < MAX_ATTEMPTS; i++) {
     const remaining = deadlineMs - (now() - startedAt);
@@ -263,31 +389,79 @@ export async function callGeminiWithRetry<T>(
         logTag,
         lastRetryableStatus,
         model,
+        lastRateLimit,
       );
     }
 
     try {
-      return await raceWithDeadline(attempt(AbortSignal.timeout(remaining)), remaining);
+      return await raceWithDeadline(
+        attempt(AbortSignal.timeout(remaining)),
+        remaining,
+      );
     } catch (err) {
       lastErr = err;
       const status = statusOf(err);
-      const isRetryable = status !== undefined && RETRYABLE_STATUSES.has(status);
+      const isRetryable =
+        status !== undefined && RETRYABLE_STATUSES.has(status);
       if (isRetryable) {
         lastRetryableStatus = status;
       }
+      const rateLimit = status === 429 ? parseRateLimitInfo(err) : null;
+      if (rateLimit) {
+        lastRateLimit = rateLimit;
+      }
       const isLastAttempt = i === MAX_ATTEMPTS - 1;
-      if (!isRetryable || isLastAttempt) {
-        throw classifyFinalError(err, logTag, lastRetryableStatus, model);
+      // 1日上限(PerDay)は待っても回復しないのでリトライしない(2026-11-17)。
+      if (!isRetryable || isLastAttempt || rateLimit?.isDaily) {
+        throw classifyFinalError(
+          err,
+          logTag,
+          lastRetryableStatus,
+          model,
+          lastRateLimit,
+        );
       }
 
       const remainingAfterFailure = deadlineMs - (now() - startedAt);
       if (remainingAfterFailure < MIN_REMAINING_MS_FOR_RETRY) {
-        throw classifyFinalError(err, logTag, lastRetryableStatus, model);
+        throw classifyFinalError(
+          err,
+          logTag,
+          lastRetryableStatus,
+          model,
+          lastRateLimit,
+        );
       }
 
       const backoff =
-        BACKOFF_SCHEDULE_MS[i] ?? BACKOFF_SCHEDULE_MS[BACKOFF_SCHEDULE_MS.length - 1];
+        BACKOFF_SCHEDULE_MS[i] ??
+        BACKOFF_SCHEDULE_MS[BACKOFF_SCHEDULE_MS.length - 1];
       const jitter = Math.floor(Math.random() * JITTER_MAX_MS);
+
+      // 分単位の429でRetryInfoがある場合は、max(既存バックオフ, retryDelay) だけ待つ。
+      // 待った後の残りが MIN_REMAINING_MS_FOR_RETRY を切るならリトライせず
+      // rate_limited(+retryAfterSec)を返す(2026-11-17)。
+      if (rateLimit?.retryDelaySec !== undefined) {
+        const delayMs = Math.ceil(rateLimit.retryDelaySec * 1000);
+        const waitForRetryMs = Math.max(backoff + jitter, delayMs);
+        if (
+          remainingAfterFailure - waitForRetryMs <
+          MIN_REMAINING_MS_FOR_RETRY
+        ) {
+          throw classifyFinalError(
+            err,
+            logTag,
+            lastRetryableStatus,
+            model,
+            lastRateLimit,
+          );
+        }
+        console.error(
+          `[${logTag}] gemini retry ${i + 1}/${MAX_ATTEMPTS - 1} after 429 (waiting ${waitForRetryMs}ms)`,
+        );
+        await sleep(waitForRetryMs);
+        continue;
+      }
       // 待機時間そのものでデッドラインを使い切らないよう、残り時間からも頭打ちする。
       // 現在の定数(MAX_ATTEMPTS=3, MIN_REMAINING_MS_FOR_RETRY=12_000)では
       // backoff+jitter(最大3,299ms)が remainingAfterFailure-1_000 を上回ることは
@@ -306,5 +480,11 @@ export async function callGeminiWithRetry<T>(
   }
 
   // 上のループは必ずreturn/throwで抜けるが、TSの制御フロー解析のため明示しておく。
-  throw classifyFinalError(lastErr, logTag, lastRetryableStatus, model);
+  throw classifyFinalError(
+    lastErr,
+    logTag,
+    lastRetryableStatus,
+    model,
+    lastRateLimit,
+  );
 }
